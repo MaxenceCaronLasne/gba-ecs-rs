@@ -3,12 +3,15 @@
 extern crate alloc;
 use alloc::vec::Vec;
 
+// Re-export procedural macros from the macro crate
+pub use gba_ecs_macros::*;
+
 #[derive(Clone, Copy, Debug)]
-struct Entity {
-    index: usize,
+pub struct Entity {
+    pub index: usize,
 }
 
-trait GetStorage<C: Component> {
+pub trait GetStorage<C: Component> {
     type Storage: ComponentStorage<C>;
     fn get_storage(&self) -> &Self::Storage;
     fn get_storage_mut(&mut self) -> &mut Self::Storage;
@@ -16,7 +19,7 @@ trait GetStorage<C: Component> {
 
 pub trait Component: 'static {}
 
-trait ComponentStorage<C: Component> {
+pub trait ComponentStorage<C: Component> {
     fn new() -> Self;
     fn get(&self, entity: Entity) -> Option<&C>;
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C>;
@@ -25,7 +28,7 @@ trait ComponentStorage<C: Component> {
     fn ensure_capacity(&mut self, entity: Entity);
 }
 
-struct VecStorage<C: Component> {
+pub struct VecStorage<C: Component> {
     components: Vec<Option<C>>,
 }
 
