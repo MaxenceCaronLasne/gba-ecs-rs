@@ -52,7 +52,7 @@ pub fn define_world(input: TokenStream) -> TokenStream {
         let comp_lower = comp.to_string().to_lowercase();
         let field_ident = quote::format_ident!("{}_storage", comp_lower);
         quote! {
-            #field_ident: VecStorage<#comp>
+            #field_ident: gba_ecs_rs::VecStorage<#comp>
         }
     });
 
@@ -60,8 +60,8 @@ pub fn define_world(input: TokenStream) -> TokenStream {
         let comp_lower = comp.to_string().to_lowercase();
         let field_ident = quote::format_ident!("{}_storage", comp_lower);
         quote! {
-            impl GetStorage<#comp> for #world_name {
-                type Storage = VecStorage<#comp>;
+            impl gba_ecs_rs::GetStorage<#comp> for #world_name {
+                type Storage = gba_ecs_rs::VecStorage<#comp>;
 
                 fn get_storage(&self) -> &Self::Storage {
                     &self.#field_ident
@@ -78,7 +78,7 @@ pub fn define_world(input: TokenStream) -> TokenStream {
         let comp_lower = comp.to_string().to_lowercase();
         let field_ident = quote::format_ident!("{}_storage", comp_lower);
         quote! {
-            #field_ident: VecStorage::new()
+            #field_ident: gba_ecs_rs::VecStorage::new()
         }
     });
 
@@ -98,36 +98,36 @@ pub fn define_world(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn spawn_entity(&mut self) -> Entity {
+            fn spawn_entity(&mut self) -> gba_ecs_rs::Entity {
                 let entity_id = self.entity_count;
                 self.entity_count += 1;
-                Entity{ index: entity_id }
+                gba_ecs_rs::Entity{ index: entity_id }
             }
 
-            fn add_component<C: Component>(&mut self, entity: Entity, component: C)
+            fn add_component<C: gba_ecs_rs::Component>(&mut self, entity: gba_ecs_rs::Entity, component: C)
             where
-                Self: GetStorage<C>,
+                Self: gba_ecs_rs::GetStorage<C>,
             {
                 self.get_storage_mut().insert(entity, component);
             }
 
-            fn remove_component<C: Component>(&mut self, entity: Entity) -> Option<C>
+            fn remove_component<C: gba_ecs_rs::Component>(&mut self, entity: gba_ecs_rs::Entity) -> Option<C>
             where
-                Self: GetStorage<C>,
+                Self: gba_ecs_rs::GetStorage<C>,
             {
                 self.get_storage_mut().remove(entity)
             }
 
-            fn get_component<C: Component>(&self, entity: Entity) -> Option<&C>
+            fn get_component<C: gba_ecs_rs::Component>(&self, entity: gba_ecs_rs::Entity) -> Option<&C>
             where
-                Self: GetStorage<C>,
+                Self: gba_ecs_rs::GetStorage<C>,
             {
                 self.get_storage().get(entity)
             }
 
-            fn get_component_mut<C: Component>(&mut self, entity: Entity) -> Option<&mut C>
+            fn get_component_mut<C: gba_ecs_rs::Component>(&mut self, entity: gba_ecs_rs::Entity) -> Option<&mut C>
             where
-                Self: GetStorage<C>,
+                Self: gba_ecs_rs::GetStorage<C>,
             {
                 self.get_storage_mut().get_mut(entity)
             }

@@ -70,6 +70,7 @@ impl<C: Component> ComponentStorage<C> for VecStorage<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as gba_ecs_rs; // Alias for the macro to find the crate
     use gba_ecs_macros::{define_world, Component};
 
     #[derive(Component)]
