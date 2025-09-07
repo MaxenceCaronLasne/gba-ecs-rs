@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "ecs-derive"
+name = "gba-ecs-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -12,10 +12,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ecs-rs"
+name = "gba-ecs-rs"
 version = "0.1.0"
 dependencies = [
- "ecs-derive",
+ "gba-ecs-macros",
  "paste",
 ]
 

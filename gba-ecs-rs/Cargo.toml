@@ -1,8 +1,9 @@
 [package]
-name = "ecs-rs"
+name = "gba-ecs-rs"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 paste = { workspace = true }
-ecs-derive = { path = "../ecs-derive" }
+gba-ecs-macros = { path = "../gba-ecs-macros" }
+

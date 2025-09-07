@@ -1,3 +1,8 @@
+#![no_std]
+
+extern crate alloc;
+use alloc::vec::Vec;
+
 #[derive(Clone, Copy, Debug)]
 struct Entity {
     index: usize,
@@ -62,7 +67,7 @@ impl<C: Component> ComponentStorage<C> for VecStorage<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ecs_derive::{define_world, Component};
+    use gba_ecs_macros::{define_world, Component};
 
     #[derive(Component)]
     struct Position {
