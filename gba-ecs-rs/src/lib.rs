@@ -14,7 +14,7 @@ trait GetStorage<C: Component> {
     fn get_storage_mut(&mut self) -> &mut Self::Storage;
 }
 
-trait Component: 'static {}
+pub trait Component: 'static {}
 
 trait ComponentStorage<C: Component> {
     fn new() -> Self;
