@@ -78,7 +78,7 @@ pub fn define_world(input: TokenStream) -> TokenStream {
         let comp_lower = comp.to_string().to_lowercase();
         let field_ident = quote::format_ident!("{}_storage", comp_lower);
         quote! {
-            #field_ident: gba_ecs_rs::VecStorage::new()
+            #field_ident: <gba_ecs_rs::VecStorage<#comp> as gba_ecs_rs::ComponentStorage<#comp>>::new()
         }
     });
 
@@ -108,28 +108,28 @@ pub fn define_world(input: TokenStream) -> TokenStream {
             where
                 Self: gba_ecs_rs::GetStorage<C>,
             {
-                self.get_storage_mut().insert(entity, component);
+                <<Self as gba_ecs_rs::GetStorage<C>>::Storage as gba_ecs_rs::ComponentStorage<C>>::insert(<Self as gba_ecs_rs::GetStorage<C>>::get_storage_mut(self), entity, component);
             }
 
             fn remove_component<C: gba_ecs_rs::Component>(&mut self, entity: gba_ecs_rs::Entity) -> Option<C>
             where
                 Self: gba_ecs_rs::GetStorage<C>,
             {
-                self.get_storage_mut().remove(entity)
+                <<Self as gba_ecs_rs::GetStorage<C>>::Storage as gba_ecs_rs::ComponentStorage<C>>::remove(<Self as gba_ecs_rs::GetStorage<C>>::get_storage_mut(self), entity)
             }
 
             fn get_component<C: gba_ecs_rs::Component>(&self, entity: gba_ecs_rs::Entity) -> Option<&C>
             where
                 Self: gba_ecs_rs::GetStorage<C>,
             {
-                self.get_storage().get(entity)
+                <<Self as gba_ecs_rs::GetStorage<C>>::Storage as gba_ecs_rs::ComponentStorage<C>>::get(<Self as gba_ecs_rs::GetStorage<C>>::get_storage(self), entity)
             }
 
             fn get_component_mut<C: gba_ecs_rs::Component>(&mut self, entity: gba_ecs_rs::Entity) -> Option<&mut C>
             where
                 Self: gba_ecs_rs::GetStorage<C>,
             {
-                self.get_storage_mut().get_mut(entity)
+                <<Self as gba_ecs_rs::GetStorage<C>>::Storage as gba_ecs_rs::ComponentStorage<C>>::get_mut(<Self as gba_ecs_rs::GetStorage<C>>::get_storage_mut(self), entity)
             }
         }
     };
