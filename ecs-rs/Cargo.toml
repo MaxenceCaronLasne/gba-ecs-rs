@@ -1,0 +1,8 @@
+[package]
+name = "ecs-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+paste = { workspace = true }
+ecs-derive = { path = "../ecs-derive" }
