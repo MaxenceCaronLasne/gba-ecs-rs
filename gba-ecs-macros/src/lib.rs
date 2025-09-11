@@ -322,6 +322,26 @@ pub fn define_world(input: TokenStream) -> TokenStream {
                 let storage = self.get_storage_mut();
                 storage.get_mut(entity)
             }
+
+            /// Query for entities with specific components.
+            ///
+            /// Returns an iterator that yields tuples of component references for entities
+            /// that have all the required components.
+            ///
+            /// # Example
+            /// ```rust,ignore
+            /// // Query for entities with Position and Velocity components
+            /// for (pos, vel) in world.query::<(&mut Position, &Velocity)>() {
+            ///     pos.x += vel.dx;
+            ///     pos.y += vel.dy;
+            /// }
+            /// ```
+            pub fn query<Q>(&mut self) -> gba_ecs_rs::QueryIterator<Q, Self>
+            where
+                Q: for<'w> gba_ecs_rs::QueryItem<'w, Self>,
+            {
+                gba_ecs_rs::QueryIterator::new(self, self.entity_count)
+            }
         }
     };
 
