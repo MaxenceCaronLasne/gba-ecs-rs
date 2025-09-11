@@ -48,35 +48,31 @@ fn main() {
 
     // Example 1: Query positions with velocity (moving entities)
     println!("Moving entities:");
-    for pos in world.query_filtered::<&Position, With<Velocity>>(With::new()) {
+    for pos in world.query::<&Position, With<Velocity>>() {
         println!("  Position: ({}, {})", pos.x, pos.y);
     }
 
     // Example 2: Query positions without velocity (static entities)
     println!("\nStatic entities:");
-    for pos in world.query_filtered::<&Position, Without<Velocity>>(Without::new()) {
+    for pos in world.query::<&Position, Without<Velocity>>() {
         println!("  Position: ({}, {})", pos.x, pos.y);
     }
 
     // Example 3: Query entities with health but without damage (friendly entities)
     println!("\nFriendly entities:");
-    for pos in world.query_filtered::<&Position, (With<Health>, Without<Damage>)>(
-        (With::new(), Without::new())
-    ) {
+    for pos in world.query::<&Position, (With<Health>, Without<Damage>)>() {
         println!("  Position: ({}, {})", pos.x, pos.y);
     }
 
     // Example 4: Query entities with damage but without health (hostile entities)
     println!("\nHostile entities:");
-    for pos in world.query_filtered::<&Position, (With<Damage>, Without<Health>)>(
-        (With::new(), Without::new())
-    ) {
+    for pos in world.query::<&Position, (With<Damage>, Without<Health>)>() {
         println!("  Position: ({}, {})", pos.x, pos.y);
     }
 
     // Example 5: Update moving entities using filters
     println!("\nUpdating moving entities...");
-    for (pos, vel) in world.query_filtered::<(&mut Position, &Velocity), ()>(()) {
+    for (pos, vel) in world.query::<(&mut Position, &Velocity), ()>() {
         pos.x += vel.dx;
         pos.y += vel.dy;
         println!("  Updated position: ({}, {})", pos.x, pos.y);

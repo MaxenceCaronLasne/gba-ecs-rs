@@ -225,48 +225,41 @@ pub fn define_world_impl(input: TokenStream) -> TokenStream {
                 storage.get_mut(entity)
             }
 
-            /// Query for entities with specific components.
+            /// Query for entities with specific components and optional filters.
             ///
-            /// Returns an iterator that yields tuples of component references for entities
-            /// that have all the required components.
+            /// Returns a query that can be passed to systems and iterated over to get
+            /// component references for entities that match the filter requirements.
             ///
-            /// # Example
+            /// # Examples
+            /// 
             /// ```rust,ignore
-            /// // Query for entities with Position and Velocity components
-            /// for (pos, vel) in world.query::<(&mut Position, &Velocity)>() {
+            /// // Unfiltered query - get all entities with Position and Velocity
+            /// for (pos, vel) in world.query::<(&mut Position, &Velocity), ()>() {
             ///     pos.x += vel.dx;
             ///     pos.y += vel.dy;
             /// }
-            /// ```
-            pub fn query<Q>(&mut self) -> gba_ecs_rs::QueryIterator<Q, Self>
-            where
-                Q: for<'w> gba_ecs_rs::QueryItem<'w, Self>,
-            {
-                gba_ecs_rs::QueryIterator::new(self, self.entity_count)
-            }
-
-            /// Query for entities with specific components and filters.
-            ///
-            /// Returns a filtered iterator that yields tuples of component references for entities
-            /// that have all the required components and match the filter criteria.
-            ///
-            /// # Example
-            /// ```rust,ignore
-            /// use gba_ecs_rs::{With, Without};
             /// 
-            /// // Query for entities with Position, filtering for those with Velocity but without Health
-            /// for pos in world.query_filtered::<&mut Position, (With<Velocity>, Without<Health>)>(
-            ///     (With::new(), Without::new())
-            /// ) {
-            ///     pos.x += 1.0;
+            /// // Filtered query - get Health for entities that have Damage
+            /// for health in world.query::<&mut Health, gba_ecs_rs::With<Damage>>() {
+            ///     health.value -= 10;
             /// }
+            /// 
+            /// // System usage
+            /// fn damage_system(query: gba_ecs_rs::Query<&mut Health, gba_ecs_rs::With<Damage>, World>) {
+            ///     for health in query {
+            ///         health.value -= 10;
+            ///     }
+            /// }
+            /// damage_system(world.query());
             /// ```
-            pub fn query_filtered<Q, F>(&mut self, filter: F) -> gba_ecs_rs::FilteredQueryIterator<Q, F, Self>
+            /// Query for entities with specific components and filters.
+            /// The filter type is inferred from the system's expected query type.
+            pub fn query<C, F>(&mut self) -> gba_ecs_rs::Query<C, F, Self>
             where
-                Q: for<'w> gba_ecs_rs::QueryItemWithFilter<'w, Self, F>,
-                F: gba_ecs_rs::Filter<Self>,
+                C: for<'w> gba_ecs_rs::ComponentQuery<'w, Self>,
+                F: gba_ecs_rs::FilterQuery<Self> + Default,
             {
-                gba_ecs_rs::FilteredQueryIterator::new(self, self.entity_count, filter)
+                gba_ecs_rs::Query::new(self, self.entity_count, F::default())
             }
         }
     };
