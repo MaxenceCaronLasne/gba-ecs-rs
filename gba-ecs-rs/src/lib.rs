@@ -1,185 +1,24 @@
 #![no_std]
 
-extern crate alloc;
-use alloc::vec::Vec;
+mod entity;
+mod component;
+mod storage;
+mod query;
 
 // Re-export procedural macros from the macro crate
 pub use gba_ecs_macros::*;
 
-#[derive(Clone, Copy, Debug)]
-pub struct Entity {
-    pub index: usize,
-}
-
-pub trait GetStorage<C: Component> {
-    type Storage: ComponentStorage<C>;
-    fn get_storage(&self) -> &Self::Storage;
-    fn get_storage_mut(&mut self) -> &mut Self::Storage;
-}
-
-pub trait Component: 'static {}
-
-// Query system traits
-pub trait QueryItem<'w, W> {
-    type Item;
-
-    fn get_item(world: &'w W, entity: Entity) -> Option<Self::Item>;
-    fn get_item_mut(world: &'w mut W, entity: Entity) -> Option<Self::Item>;
-}
-
-// Implementation for single immutable reference
-impl<'w, T: Component, W: GetStorage<T>> QueryItem<'w, W> for &T {
-    type Item = &'w T;
-
-    fn get_item(world: &'w W, entity: Entity) -> Option<Self::Item> {
-        world.get_storage().get(entity)
-    }
-
-    fn get_item_mut(world: &'w mut W, entity: Entity) -> Option<Self::Item> {
-        world.get_storage().get(entity)
-    }
-}
-
-// Implementation for single mutable reference
-impl<'w, T: Component, W: GetStorage<T>> QueryItem<'w, W> for &mut T {
-    type Item = &'w mut T;
-
-    fn get_item(_world: &'w W, _entity: Entity) -> Option<Self::Item> {
-        // Can't get mutable reference from immutable world
-        None
-    }
-
-    fn get_item_mut(world: &'w mut W, entity: Entity) -> Option<Self::Item> {
-        world.get_storage_mut().get_mut(entity)
-    }
-}
-
-// Macro to implement QueryItem for tuples
-macro_rules! impl_query_item_tuple {
-    ($($T:ident),*) => {
-        impl<'w, W, $($T),*> QueryItem<'w, W> for ($($T,)*)
-        where
-            $($T: QueryItem<'w, W>,)*
-        {
-            type Item = ($($T::Item,)*);
-
-            fn get_item(world: &'w W, entity: Entity) -> Option<Self::Item> {
-                Some(($($T::get_item(world, entity)?,)*))
-            }
-
-            fn get_item_mut(world: &'w mut W, entity: Entity) -> Option<Self::Item> {
-                // This is tricky - we need unsafe code to get multiple mutable references
-                // For now, let's implement a simpler version that works for mixed queries
-                unsafe {
-                    let world_ptr = world as *mut W;
-                    Some(($(
-                        $T::get_item_mut(&mut *world_ptr, entity)?,
-                    )*))
-                }
-            }
-        }
-    };
-}
-
-// Implement for tuples of 1-4 components
-impl_query_item_tuple!(A);
-impl_query_item_tuple!(A, B);
-impl_query_item_tuple!(A, B, C);
-impl_query_item_tuple!(A, B, C, D);
-
-// Query iterator
-pub struct QueryIterator<'w, Q, W> {
-    world: &'w mut W,
-    current_entity: usize,
-    max_entity: usize,
-    _phantom: core::marker::PhantomData<Q>,
-}
-
-impl<'w, Q, W> QueryIterator<'w, Q, W> {
-    pub fn new(world: &'w mut W, max_entity: usize) -> Self {
-        QueryIterator {
-            world,
-            current_entity: 0,
-            max_entity,
-            _phantom: core::marker::PhantomData,
-        }
-    }
-}
-
-impl<'w, Q: QueryItem<'w, W>, W> Iterator for QueryIterator<'w, Q, W> {
-    type Item = Q::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.current_entity < self.max_entity {
-            let entity = Entity {
-                index: self.current_entity,
-            };
-            self.current_entity += 1;
-
-            unsafe {
-                // We need unsafe here to get around the borrow checker
-                // This is safe because we know each component storage is independent
-                let world_ptr = self.world as *mut W;
-                if let Some(item) = Q::get_item_mut(&mut *world_ptr, entity) {
-                    return Some(item);
-                }
-            }
-        }
-        None
-    }
-}
-
-pub trait ComponentStorage<C: Component> {
-    fn new() -> Self;
-    fn get(&self, entity: Entity) -> Option<&C>;
-    fn get_mut(&mut self, entity: Entity) -> Option<&mut C>;
-    fn insert(&mut self, entity: Entity, component: C);
-    fn remove(&mut self, entity: Entity) -> Option<C>;
-    fn ensure_capacity(&mut self, entity: Entity);
-}
-
-pub struct VecStorage<C: Component> {
-    components: Vec<Option<C>>,
-}
-
-impl<C: Component> ComponentStorage<C> for VecStorage<C> {
-    fn new() -> Self {
-        VecStorage {
-            components: Vec::new(),
-        }
-    }
-
-    fn get(&self, entity: Entity) -> Option<&C> {
-        self.components.get(entity.index)?.as_ref()
-    }
-
-    fn get_mut(&mut self, entity: Entity) -> Option<&mut C> {
-        self.components.get_mut(entity.index)?.as_mut()
-    }
-
-    fn insert(&mut self, entity: Entity, component: C) {
-        self.ensure_capacity(entity);
-        self.components[entity.index] = Some(component);
-    }
-
-    fn remove(&mut self, entity: Entity) -> Option<C> {
-        if entity.index < self.components.len() {
-            self.components[entity.index].take()
-        } else {
-            None
-        }
-    }
-
-    fn ensure_capacity(&mut self, entity: Entity) {
-        if entity.index >= self.components.len() {
-            self.components.resize_with(entity.index + 1, || None);
-        }
-    }
-}
+// Re-export all public items from modules
+pub use entity::Entity;
+pub use component::Component;
+pub use storage::{ComponentStorage, GetStorage, VecStorage};
+pub use query::{Filter, With, Without, QueryItem, QueryItemWithFilter, QueryIterator, FilteredQueryIterator};
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    extern crate alloc;
+    use alloc::vec::Vec;
     use crate as gba_ecs_rs; // Alias for the macro to find the crate
     use gba_ecs_macros::{define_world, Component};
 
@@ -454,5 +293,85 @@ mod tests {
         // Count combined queries (should be entities 0, 1, 2)
         let combined_count = world.query::<(&Position, &Velocity)>().count();
         assert_eq!(combined_count, 3);
+    }
+
+    #[test]
+    fn test_with_filter() {
+        let mut world = World::new();
+
+        // Entity with Position and Velocity
+        let entity1 = world.spawn_entity();
+        world.add_component(entity1, Position { x: 1.0, y: 2.0 });
+        world.add_component(entity1, Velocity { dx: 0.5, dy: -0.5 });
+
+        // Entity with Position only
+        let entity2 = world.spawn_entity();
+        world.add_component(entity2, Position { x: 3.0, y: 4.0 });
+
+        // Query Position with filter for entities that have Velocity
+        let mut results = Vec::new();
+        for pos in world.query_filtered::<&Position, With<Velocity>>(With::new()) {
+            results.push((pos.x, pos.y));
+        }
+
+        // Should only find entity1
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], (1.0, 2.0));
+    }
+
+    #[test]
+    fn test_without_filter() {
+        let mut world = World::new();
+
+        // Entity with Position and Velocity
+        let entity1 = world.spawn_entity();
+        world.add_component(entity1, Position { x: 1.0, y: 2.0 });
+        world.add_component(entity1, Velocity { dx: 0.5, dy: -0.5 });
+
+        // Entity with Position only
+        let entity2 = world.spawn_entity();
+        world.add_component(entity2, Position { x: 3.0, y: 4.0 });
+
+        // Query Position with filter for entities that don't have Velocity
+        let mut results = Vec::new();
+        for pos in world.query_filtered::<&Position, Without<Velocity>>(Without::new()) {
+            results.push((pos.x, pos.y));
+        }
+
+        // Should only find entity2
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], (3.0, 4.0));
+    }
+
+    #[test]
+    fn test_multiple_filters() {
+        let mut world = World::new();
+
+        // Entity with Position, Velocity, and Health
+        let entity1 = world.spawn_entity();
+        world.add_component(entity1, Position { x: 1.0, y: 2.0 });
+        world.add_component(entity1, Velocity { dx: 0.5, dy: -0.5 });
+        world.add_component(entity1, Health { value: 100 });
+
+        // Entity with Position and Velocity only
+        let entity2 = world.spawn_entity();
+        world.add_component(entity2, Position { x: 3.0, y: 4.0 });
+        world.add_component(entity2, Velocity { dx: 1.0, dy: 1.0 });
+
+        // Entity with Position only
+        let entity3 = world.spawn_entity();
+        world.add_component(entity3, Position { x: 5.0, y: 6.0 });
+
+        // Query Position with filter for entities that have Velocity but not Health
+        let mut results = Vec::new();
+        for pos in world.query_filtered::<&Position, (With<Velocity>, Without<Health>)>(
+            (With::new(), Without::new())
+        ) {
+            results.push((pos.x, pos.y));
+        }
+
+        // Should only find entity2
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], (3.0, 4.0));
     }
 }

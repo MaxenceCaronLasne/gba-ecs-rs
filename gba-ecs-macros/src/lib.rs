@@ -33,8 +33,9 @@
 //! ```
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Error};
+
+mod component;
+mod world;
 
 /// Derive macro for implementing the `Component` trait.
 ///
@@ -70,34 +71,7 @@ use syn::{parse_macro_input, DeriveInput, Error};
 /// ```
 #[proc_macro_derive(Component)]
 pub fn derive_component(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = &input.ident;
-    let span = name.span();
-
-    match input.data {
-        syn::Data::Struct(_) => {
-            let expanded = quote! {
-                impl Component for #name {}
-            };
-            TokenStream::from(expanded)
-        }
-        syn::Data::Enum(_) => {
-            let error = Error::new(
-                span,
-                "Component can only be derived for structs, not enums. \
-                 Consider using a struct wrapper if you need enum-like behavior.",
-            );
-            TokenStream::from(error.to_compile_error())
-        }
-        syn::Data::Union(_) => {
-            let error = Error::new(
-                span,
-                "Component can only be derived for structs, not unions. \
-                 Unions are not supported for ECS components.",
-            );
-            TokenStream::from(error.to_compile_error())
-        }
-    }
+    component::derive_component_impl(input)
 }
 
 /// Generates a complete ECS World struct with storage for the specified components.
@@ -170,180 +144,5 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 /// - Entity IDs are simple incrementing integers starting from 0
 #[proc_macro]
 pub fn define_world(input: TokenStream) -> TokenStream {
-    use syn::{braced, parse::Parse, parse::ParseStream, punctuated::Punctuated, Ident, Token};
-
-    // Parse the input syntax: WorldName { Component1, Component2, ... }
-    struct WorldDefinition {
-        world_name: Ident,
-        components: Punctuated<Ident, Token![,]>,
-    }
-
-    impl Parse for WorldDefinition {
-        fn parse(input: ParseStream) -> syn::Result<Self> {
-            let world_name = input.parse()?;
-            let content;
-            braced!(content in input);
-            let components = content.parse_terminated(Ident::parse, Token![,])?;
-
-            Ok(WorldDefinition {
-                world_name,
-                components,
-            })
-        }
-    }
-
-    let world_def = parse_macro_input!(input as WorldDefinition);
-    let world_name = &world_def.world_name;
-    let components: Vec<_> = world_def.components.into_iter().collect();
-
-    // Helper function to generate consistent storage field names
-    let storage_field_name = |comp: &Ident| {
-        let comp_name = comp.to_string();
-        // Convert CamelCase to snake_case for field names
-        let snake_case = comp_name
-            .chars()
-            .enumerate()
-            .fold(String::new(), |mut acc, (i, c)| {
-                if c.is_uppercase() && i > 0 {
-                    acc.push('_');
-                }
-                acc.push(c.to_lowercase().next().unwrap_or(c));
-                acc
-            });
-        quote::format_ident!("{}_storage", snake_case)
-    };
-
-    // Generate storage field declarations
-    let storage_fields = components.iter().map(|comp| {
-        let field_name = storage_field_name(comp);
-        quote! {
-            #field_name: gba_ecs_rs::VecStorage<#comp>
-        }
-    });
-
-    // Generate GetStorage trait implementations for each component
-    let get_storage_impls = components.iter().map(|comp| {
-        let field_name = storage_field_name(comp);
-        quote! {
-            impl gba_ecs_rs::GetStorage<#comp> for #world_name {
-                type Storage = gba_ecs_rs::VecStorage<#comp>;
-
-                fn get_storage(&self) -> &Self::Storage {
-                    &self.#field_name
-                }
-
-                fn get_storage_mut(&mut self) -> &mut Self::Storage {
-                    &mut self.#field_name
-                }
-            }
-        }
-    });
-
-    // Generate field initialization for the new() method
-    let new_field_inits = components.iter().map(|comp| {
-        let field_name = storage_field_name(comp);
-        quote! {
-            #field_name: gba_ecs_rs::ComponentStorage::new()
-        }
-    });
-
-    // Generate the complete world struct and implementation
-    let expanded = quote! {
-        pub struct #world_name {
-            #(#storage_fields,)*
-            entity_count: usize,
-        }
-
-        // Implement GetStorage for each component type
-        #(#get_storage_impls)*
-
-        impl #world_name {
-            /// Creates a new empty world with no entities or components.
-            pub fn new() -> Self {
-                #world_name {
-                    #(#new_field_inits,)*
-                    entity_count: 0,
-                }
-            }
-
-            /// Spawns a new entity and returns its unique identifier.
-            ///
-            /// Each entity gets a unique ID that can be used to attach components.
-            pub fn spawn_entity(&mut self) -> gba_ecs_rs::Entity {
-                let entity_id = self.entity_count;
-                self.entity_count += 1;
-                gba_ecs_rs::Entity { index: entity_id }
-            }
-
-            /// Adds a component to the specified entity.
-            ///
-            /// If the entity already has a component of this type, it will be replaced.
-            pub fn add_component<C>(&mut self, entity: gba_ecs_rs::Entity, component: C)
-            where
-                C: gba_ecs_rs::Component,
-                Self: gba_ecs_rs::GetStorage<C>,
-            {
-                let storage = self.get_storage_mut();
-                storage.insert(entity, component);
-            }
-
-            /// Removes a component from the specified entity and returns it.
-            ///
-            /// Returns `None` if the entity doesn't have a component of this type.
-            pub fn remove_component<C>(&mut self, entity: gba_ecs_rs::Entity) -> Option<C>
-            where
-                C: gba_ecs_rs::Component,
-                Self: gba_ecs_rs::GetStorage<C>,
-            {
-                let storage = self.get_storage_mut();
-                storage.remove(entity)
-            }
-
-            /// Gets a read-only reference to a component on the specified entity.
-            ///
-            /// Returns `None` if the entity doesn't have a component of this type.
-            pub fn get_component<C>(&self, entity: gba_ecs_rs::Entity) -> Option<&C>
-            where
-                C: gba_ecs_rs::Component,
-                Self: gba_ecs_rs::GetStorage<C>,
-            {
-                let storage = self.get_storage();
-                storage.get(entity)
-            }
-
-            /// Gets a mutable reference to a component on the specified entity.
-            ///
-            /// Returns `None` if the entity doesn't have a component of this type.
-            pub fn get_component_mut<C>(&mut self, entity: gba_ecs_rs::Entity) -> Option<&mut C>
-            where
-                C: gba_ecs_rs::Component,
-                Self: gba_ecs_rs::GetStorage<C>,
-            {
-                let storage = self.get_storage_mut();
-                storage.get_mut(entity)
-            }
-
-            /// Query for entities with specific components.
-            ///
-            /// Returns an iterator that yields tuples of component references for entities
-            /// that have all the required components.
-            ///
-            /// # Example
-            /// ```rust,ignore
-            /// // Query for entities with Position and Velocity components
-            /// for (pos, vel) in world.query::<(&mut Position, &Velocity)>() {
-            ///     pos.x += vel.dx;
-            ///     pos.y += vel.dy;
-            /// }
-            /// ```
-            pub fn query<Q>(&mut self) -> gba_ecs_rs::QueryIterator<Q, Self>
-            where
-                Q: for<'w> gba_ecs_rs::QueryItem<'w, Self>,
-            {
-                gba_ecs_rs::QueryIterator::new(self, self.entity_count)
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
+    world::define_world_impl(input)
 }
