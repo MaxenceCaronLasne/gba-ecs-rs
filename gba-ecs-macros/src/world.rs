@@ -159,6 +159,59 @@ pub fn define_world_impl(input: TokenStream) -> TokenStream {
         // Implement GetStorage for each component type
         #(#get_storage_impls)*
 
+        // Implement WorldTrait for the generated world
+        impl gba_ecs_rs::WorldTrait for #world_name {
+            fn spawn_entity(&mut self) -> gba_ecs_rs::Entity {
+                let entity_id = self.entity_count;
+                self.entity_count += 1;
+                gba_ecs_rs::Entity { index: entity_id }
+            }
+
+            fn add_component<C>(&mut self, entity: gba_ecs_rs::Entity, component: C)
+            where
+                C: gba_ecs_rs::Component,
+                Self: gba_ecs_rs::GetStorage<C>,
+            {
+                let storage = self.get_storage_mut();
+                storage.insert(entity, component);
+            }
+
+            fn remove_component<C>(&mut self, entity: gba_ecs_rs::Entity) -> Option<C>
+            where
+                C: gba_ecs_rs::Component,
+                Self: gba_ecs_rs::GetStorage<C>,
+            {
+                let storage = self.get_storage_mut();
+                storage.remove(entity)
+            }
+
+            fn get_component<C>(&self, entity: gba_ecs_rs::Entity) -> Option<&C>
+            where
+                C: gba_ecs_rs::Component,
+                Self: gba_ecs_rs::GetStorage<C>,
+            {
+                let storage = self.get_storage();
+                storage.get(entity)
+            }
+
+            fn get_component_mut<C>(&mut self, entity: gba_ecs_rs::Entity) -> Option<&mut C>
+            where
+                C: gba_ecs_rs::Component,
+                Self: gba_ecs_rs::GetStorage<C>,
+            {
+                let storage = self.get_storage_mut();
+                storage.get_mut(entity)
+            }
+
+            fn query<C, F>(&mut self) -> gba_ecs_rs::Query<C, F, Self>
+            where
+                C: for<'w> gba_ecs_rs::ComponentQuery<'w, Self>,
+                F: gba_ecs_rs::FilterQuery<Self> + Default,
+            {
+                gba_ecs_rs::Query::new(self, self.entity_count, F::default())
+            }
+        }
+
         impl #world_name {
             /// Creates a new empty world with no entities or components.
             pub fn new() -> Self {
@@ -231,19 +284,19 @@ pub fn define_world_impl(input: TokenStream) -> TokenStream {
             /// component references for entities that match the filter requirements.
             ///
             /// # Examples
-            /// 
+            ///
             /// ```rust,ignore
             /// // Unfiltered query - get all entities with Position and Velocity
             /// for (pos, vel) in world.query::<(&mut Position, &Velocity), ()>() {
             ///     pos.x += vel.dx;
             ///     pos.y += vel.dy;
             /// }
-            /// 
+            ///
             /// // Filtered query - get Health for entities that have Damage
             /// for health in world.query::<&mut Health, gba_ecs_rs::With<Damage>>() {
             ///     health.value -= 10;
             /// }
-            /// 
+            ///
             /// // System usage
             /// fn damage_system(query: gba_ecs_rs::Query<&mut Health, gba_ecs_rs::With<Damage>, World>) {
             ///     for health in query {
@@ -266,4 +319,3 @@ pub fn define_world_impl(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-

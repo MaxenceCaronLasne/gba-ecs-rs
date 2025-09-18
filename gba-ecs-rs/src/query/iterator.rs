@@ -1,5 +1,5 @@
-use super::item::ComponentQuery;
 use super::filter::FilterQuery;
+use super::item::ComponentQuery;
 use crate::Entity;
 
 pub struct QueryIterator<'w, C, F, W> {
@@ -53,4 +53,3 @@ where
         None
     }
 }
-

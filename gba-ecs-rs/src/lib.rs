@@ -1,25 +1,27 @@
 #![no_std]
 
-mod entity;
 mod component;
-mod storage;
+mod entity;
 mod query;
+mod storage;
+mod world;
 
 // Re-export procedural macros from the macro crate
 pub use gba_ecs_macros::*;
 
 // Re-export all public items from modules
-pub use entity::Entity;
 pub use component::Component;
+pub use entity::Entity;
+pub use query::{ComponentQuery, DefaultFilter, FilterQuery, Query, QueryIterator, With, Without};
 pub use storage::{ComponentStorage, GetStorage, VecStorage};
-pub use query::{With, Without, FilterQuery, DefaultFilter, ComponentQuery, QueryIterator, Query};
+pub use world::WorldTrait;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     extern crate alloc;
-    use alloc::vec::Vec;
     use crate as gba_ecs_rs; // Alias for the macro to find the crate
+    use alloc::vec::Vec;
     use gba_ecs_macros::{define_world, Component};
 
     #[derive(Component)]
@@ -291,7 +293,10 @@ mod tests {
         assert_eq!(velocity_count, 3);
 
         // Count combined queries (should be entities 0, 1, 2)
-        let combined_count = world.query::<(&Position, &Velocity), ()>().into_iter().count();
+        let combined_count = world
+            .query::<(&Position, &Velocity), ()>()
+            .into_iter()
+            .count();
         assert_eq!(combined_count, 3);
     }
 
@@ -441,6 +446,27 @@ mod tests {
 
         let health2 = world.get_component::<Health>(entity2).unwrap();
         assert_eq!(health2.value, 50);
+    }
+
+    fn generic_system<W: WorldTrait>(world: &mut W)
+    where
+        W: GetStorage<Position> + GetStorage<Velocity>,
+    {
+        let entity = world.spawn_entity();
+        world.add_component(entity, Position { x: 5.0, y: 10.0 });
+        world.add_component(entity, Velocity { dx: 1.0, dy: 2.0 });
+    }
+
+    #[test]
+    fn test_world_trait_generic_function() {
+        let mut world = World::new();
+
+        generic_system(&mut world);
+
+        let positions: Vec<_> = world.query::<&Position, ()>().into_iter().collect();
+        assert_eq!(positions.len(), 1);
+        assert_eq!(positions[0].x, 5.0);
+        assert_eq!(positions[0].y, 10.0);
     }
 
     #[test]
