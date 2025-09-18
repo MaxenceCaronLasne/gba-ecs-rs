@@ -1,0 +1,21 @@
+[package]
+name = "gba-ecs-benchmark"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "benchmark"
+path = "src/main.rs"
+
+[dependencies]
+gba-ecs-rs = { path = "../gba-ecs-rs" }
+agb = { workspace = true }
+
+[profile.dev]
+opt-level = 3
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+debug = true
