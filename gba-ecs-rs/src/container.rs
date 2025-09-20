@@ -14,6 +14,7 @@ pub trait ComponentContainer<C> {
     fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
     where
         C: 'a;
+    fn is_sparse(&self) -> bool;
 }
 
 pub trait GetComponentContainer<C> {
@@ -62,42 +63,32 @@ impl SparseMarkerContainer {
 }
 
 impl MarkerContainer for SparseMarkerContainer {
-    #[inline]
     fn add_entity(&mut self, entity: Entity) {}
 
-    #[inline]
     fn set(&mut self, entity: Entity) {
         _ = self.container.insert(entity.index)
     }
 
-    #[inline]
     fn is_present(&self, entity: Entity) -> bool {
         self.container.contains(&entity.index)
     }
 
-    #[inline]
     fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         self.container.iter().copied()
     }
 }
 
 impl MarkerContainer for DenseMarkerContainer {
-    #[inline]
     fn set(&mut self, entity: Entity) {
-        agb::println!("Len={}", self.container.len());
         self.container[entity.index] = true;
     }
 
-    #[inline]
     fn add_entity(&mut self, entity: Entity) {
-        agb::println!("Len={}", self.container.len());
         while self.container.len() <= entity.index {
             self.container.push(false);
-            agb::println!("~Len={}", self.container.len());
         }
     }
 
-    #[inline]
     fn is_present(&self, entity: Entity) -> bool {
         if let Some(res) = self.container.get(entity.index) {
             return *res;
@@ -106,7 +97,6 @@ impl MarkerContainer for DenseMarkerContainer {
         false
     }
 
-    #[inline]
     fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         self.container
             .iter()
@@ -125,14 +115,12 @@ impl<C> DenseComponentContainer<C> {
 }
 
 impl<C> ComponentContainer<C> for DenseComponentContainer<C> {
-    #[inline]
     fn add_entity(&mut self, entity: Entity) {
         while self.container.len() <= entity.index {
             self.container.push(None);
         }
     }
 
-    #[inline]
     fn get(&self, entity: Entity) -> Option<&C> {
         if let Some(maybe_component) = self.container.get(entity.index) {
             if let Some(component) = maybe_component {
@@ -143,7 +131,6 @@ impl<C> ComponentContainer<C> for DenseComponentContainer<C> {
         return None;
     }
 
-    #[inline]
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C> {
         if let Some(maybe_component) = self.container.get_mut(entity.index) {
             if let Some(component) = maybe_component {
@@ -154,25 +141,37 @@ impl<C> ComponentContainer<C> for DenseComponentContainer<C> {
         return None;
     }
 
-    #[inline]
     fn set(&mut self, entity: Entity, component: C) {
         self.container[entity.index] = Some(component);
     }
 
-    #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, &'a C)> + 'a
     where
         C: 'a,
     {
-        self.container.iter().flatten().enumerate()
+        self.container
+            .iter()
+            .enumerate()
+            .filter_map(|(i, o)| match o {
+                Some(value) => Some((i, value)),
+                None => None,
+            })
     }
 
-    #[inline]
     fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
     where
         C: 'a,
     {
-        self.container.iter_mut().flatten().enumerate()
+        self.container
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, o)| match o {
+                Some(value) => Some((i, value)),
+                None => None,
+            })
+    }
+    fn is_sparse(&self) -> bool {
+        false
     }
 }
 
@@ -185,25 +184,20 @@ impl<C> SparseComponentContainer<C> {
 }
 
 impl<C> ComponentContainer<C> for SparseComponentContainer<C> {
-    #[inline]
     fn add_entity(&mut self, entity: Entity) {}
 
-    #[inline]
     fn get(&self, entity: Entity) -> Option<&C> {
         self.container.get(&entity.index)
     }
 
-    #[inline]
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C> {
         self.container.get_mut(&entity.index)
     }
 
-    #[inline]
     fn set(&mut self, entity: Entity, component: C) {
         self.container.insert(entity.index, component);
     }
 
-    #[inline]
     fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, &'a C)> + 'a
     where
         C: 'a,
@@ -211,11 +205,14 @@ impl<C> ComponentContainer<C> for SparseComponentContainer<C> {
         self.container.iter().map(|(i, c)| (*i, c))
     }
 
-    #[inline]
     fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
     where
         C: 'a,
     {
         self.container.iter_mut().map(|(i, c)| (*i, c))
+    }
+
+    fn is_sparse(&self) -> bool {
+        true
     }
 }
