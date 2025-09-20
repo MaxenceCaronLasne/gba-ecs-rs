@@ -1,0 +1,7 @@
+[workspace]
+members = ["gba-ecs-rs", "gba-ecs-test"]
+resolver = "2"
+
+[workspace.dependencies]
+agb = { version = "0.22.5" }
+portable-atomic = { version = "1.11.1", features = [] }
