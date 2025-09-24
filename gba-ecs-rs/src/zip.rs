@@ -1,7 +1,9 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-pub struct ZippedQuery<'a, T1, T2> {
+use crate::DenseComponentContainer;
+
+pub struct ZippedQuery2<'a, T1, T2> {
     container1: *const Option<T1>,
     container2: *const Option<T2>,
     current_index: usize,
@@ -9,8 +11,8 @@ pub struct ZippedQuery<'a, T1, T2> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a, T1: 'a, T2: 'a> ZippedQuery<'a, T1, T2> {
-    pub fn new(container1: &'a Vec<Option<T1>>, container2: &'a Vec<Option<T2>>) -> Self {
+impl<'a, T1: 'a, T2: 'a> ZippedQuery2<'a, T1, T2> {
+    fn new(container1: &'a Vec<Option<T1>>, container2: &'a Vec<Option<T2>>) -> Self {
         assert_eq!(container1.len(), container2.len());
 
         let len = container1.len().min(container2.len());
@@ -44,4 +46,124 @@ impl<'a, T1: 'a, T2: 'a> ZippedQuery<'a, T1, T2> {
             }
         }
     }
+
+    #[inline]
+    pub fn for_each_mut<F>(mut self, mut f: F)
+    where
+        F: FnMut(usize, &'a mut T1, &'a T2),
+    {
+        while self.current_index < self.len {
+            let index = self.current_index;
+            self.current_index += 1;
+
+            unsafe {
+                let val1 = &mut *(self.container1 as *mut Option<T1>).add(index);
+                let val2 = &*self.container2.add(index);
+
+                if let Some(ref1) = val1 {
+                    if let Some(ref2) = val2 {
+                        f(index, ref1, ref2);
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub struct ZippedQuery3<'a, T1, T2, T3> {
+    container1: *const Option<T1>,
+    container2: *const Option<T2>,
+    container3: *const Option<T3>,
+    current_index: usize,
+    len: usize,
+    _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a, T1: 'a, T2: 'a, T3: 'a> ZippedQuery3<'a, T1, T2, T3> {
+    fn new(
+        container1: &'a Vec<Option<T1>>,
+        container2: &'a Vec<Option<T2>>,
+        container3: &'a Vec<Option<T3>>,
+    ) -> Self {
+        assert_eq!(container1.len(), container2.len());
+
+        let len = container1.len().min(container2.len());
+        Self {
+            container1: container1.as_ptr(),
+            container2: container2.as_ptr(),
+            container3: container3.as_ptr(),
+            current_index: 0,
+            len,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn for_each<F>(mut self, mut f: F)
+    where
+        F: FnMut(usize, &'a T1, &'a T2, &'a T3),
+    {
+        while self.current_index < self.len {
+            let index = self.current_index;
+            self.current_index += 1;
+
+            unsafe {
+                let val1 = &*self.container1.add(index);
+                let val2 = &*self.container2.add(index);
+                let val3 = &*self.container3.add(index);
+
+                if let Some(ref1) = val1 {
+                    if let Some(ref2) = val2 {
+                        if let Some(ref3) = val3 {
+                            f(index, ref1, ref2, ref3);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub fn for_each_mut<F>(mut self, mut f: F)
+    where
+        F: FnMut(usize, &'a mut T1, &'a T2, &'a T3),
+    {
+        while self.current_index < self.len {
+            let index = self.current_index;
+            self.current_index += 1;
+
+            unsafe {
+                let val1 = &mut *(self.container1 as *mut Option<T1>).add(index);
+                let val2 = &*self.container2.add(index);
+                let val3 = &*self.container3.add(index);
+
+                if let Some(ref1) = val1 {
+                    if let Some(ref2) = val2 {
+                        if let Some(ref3) = val3 {
+                            f(index, ref1, ref2, ref3);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn zip<'a, T1, T2>(
+    container1: &'a DenseComponentContainer<T1>,
+    container2: &'a DenseComponentContainer<T2>,
+) -> ZippedQuery2<'a, T1, T2> {
+    ZippedQuery2::new(&container1.container, &container2.container)
+}
+
+pub fn zip3<'a, T1, T2, T3>(
+    container1: &'a DenseComponentContainer<T1>,
+    container2: &'a DenseComponentContainer<T2>,
+    container3: &'a DenseComponentContainer<T3>,
+) -> ZippedQuery3<'a, T1, T2, T3> {
+    ZippedQuery3::new(
+        &container1.container,
+        &container2.container,
+        &container3.container,
+    )
 }

@@ -1,6 +1,5 @@
 extern crate alloc;
 
-use crate::zip::ZippedQuery;
 use crate::Entity;
 use alloc::vec::Vec;
 
@@ -25,7 +24,7 @@ pub trait GetComponentContainer<C> {
 }
 
 pub struct DenseComponentContainer<C> {
-    container: Vec<Option<C>>,
+    pub container: Vec<Option<C>>,
 }
 
 pub struct SparseComponentContainer<C> {
@@ -114,12 +113,6 @@ impl<C> DenseComponentContainer<C> {
         }
     }
 
-    pub fn zip2<'a, T2>(
-        &'a self,
-        other: &'a DenseComponentContainer<T2>,
-    ) -> ZippedQuery<'a, C, T2> {
-        ZippedQuery::new(&self.container, &other.container)
-    }
 }
 
 impl<C> ComponentContainer<C> for DenseComponentContainer<C> {

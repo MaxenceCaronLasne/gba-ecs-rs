@@ -10,4 +10,7 @@ pub use container::{
     MarkerContainer, SparseComponentContainer, SparseMarkerContainer,
 };
 pub use entity::Entity;
-pub use zip::ZippedQuery;
+pub use zip::{
+    zip, zip3, zip3_mut, zip3_mut_mut, zip3_mut_mut_mut, zip_mut, zip_mut_mut, ZippedQuery2,
+    ZippedQuery3,
+};

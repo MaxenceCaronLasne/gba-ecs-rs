@@ -21,7 +21,7 @@ use agb::println;
 use agb::Gba;
 use alloc::vec::Vec;
 use gba_ecs_rs::{
-    ComponentContainer, DenseComponentContainer, DenseMarkerContainer, Entity,
+    zip, zip3, ComponentContainer, DenseComponentContainer, DenseMarkerContainer, Entity,
     GetComponentContainer, MarkerContainer, SparseComponentContainer, SparseMarkerContainer,
 };
 
@@ -55,7 +55,7 @@ struct MyWorld {
     is_enemy: SparseMarkerContainer,
     positions: DenseComponentContainer<Position>,
     velocities: DenseComponentContainer<Velocity>,
-    strongness: SparseComponentContainer<Strongness>,
+    strongness: DenseComponentContainer<Strongness>,
 }
 
 impl World for MyWorld {
@@ -65,7 +65,7 @@ impl World for MyWorld {
             is_enemy: SparseMarkerContainer::new(),
             positions: DenseComponentContainer::new(),
             velocities: DenseComponentContainer::new(),
-            strongness: SparseComponentContainer::new(),
+            strongness: DenseComponentContainer::new(),
         }
     }
 
@@ -127,7 +127,7 @@ impl GetComponentContainer<Velocity> for MyWorld {
 }
 
 impl GetComponentContainer<Strongness> for MyWorld {
-    type Container = SparseComponentContainer<Strongness>;
+    type Container = DenseComponentContainer<Strongness>;
     fn get_components(&self) -> &Self::Container {
         &self.strongness
     }
@@ -195,9 +195,7 @@ fn main(mut gba: agb::Gba) -> ! {
     bench::stop("ecs");
 
     bench::start("double");
-    positions
-        .zip2(velocities)
-        .for_each(|i, p, v| sum += p.x + v.dx);
+    zip3(positions, velocities, strongness).for_each_mut(|i, p, v, s| sum += p.x + v.dx + s.0);
     bench::stop("double");
 
     bench::start("double base");
