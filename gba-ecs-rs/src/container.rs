@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::zip::ZippedQuery;
 use crate::Entity;
 use alloc::vec::Vec;
 
@@ -8,12 +9,12 @@ pub trait ComponentContainer<C> {
     fn set(&mut self, entity: Entity, component: C);
     fn get(&self, entity: Entity) -> Option<&C>;
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C>;
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, &'a C)> + 'a
+    fn for_each<F>(&self, f: F)
     where
-        C: 'a;
-    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
+        F: FnMut(usize, &C);
+    fn for_each_mut<F>(&mut self, f: F)
     where
-        C: 'a;
+        F: FnMut(usize, &mut C);
     fn is_sparse(&self) -> bool;
 }
 
@@ -112,6 +113,13 @@ impl<C> DenseComponentContainer<C> {
             container: Vec::new(),
         }
     }
+
+    pub fn zip2<'a, T2>(
+        &'a self,
+        other: &'a DenseComponentContainer<T2>,
+    ) -> ZippedQuery<'a, C, T2> {
+        ZippedQuery::new(&self.container, &other.container)
+    }
 }
 
 impl<C> ComponentContainer<C> for DenseComponentContainer<C> {
@@ -145,30 +153,40 @@ impl<C> ComponentContainer<C> for DenseComponentContainer<C> {
         self.container[entity.index] = Some(component);
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, &'a C)> + 'a
+    #[inline]
+    fn for_each<F>(&self, mut f: F)
     where
-        C: 'a,
+        F: FnMut(usize, &C),
     {
-        self.container
-            .iter()
-            .enumerate()
-            .filter_map(|(i, o)| match o {
-                Some(value) => Some((i, value)),
-                None => None,
-            })
+        let len = self.container.len();
+        let ptr = self.container.as_ptr();
+
+        for index in 0..len {
+            unsafe {
+                let val = &*ptr.add(index);
+                if let Some(component) = val {
+                    f(index, component);
+                }
+            }
+        }
     }
 
-    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
+    #[inline]
+    fn for_each_mut<F>(&mut self, mut f: F)
     where
-        C: 'a,
+        F: FnMut(usize, &mut C),
     {
-        self.container
-            .iter_mut()
-            .enumerate()
-            .filter_map(|(i, o)| match o {
-                Some(value) => Some((i, value)),
-                None => None,
-            })
+        let len = self.container.len();
+        let ptr = self.container.as_mut_ptr();
+
+        for index in 0..len {
+            unsafe {
+                let val = &mut *ptr.add(index);
+                if let Some(component) = val {
+                    f(index, component);
+                }
+            }
+        }
     }
     fn is_sparse(&self) -> bool {
         false
@@ -198,18 +216,24 @@ impl<C> ComponentContainer<C> for SparseComponentContainer<C> {
         self.container.insert(entity.index, component);
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, &'a C)> + 'a
+    #[inline]
+    fn for_each<F>(&self, mut f: F)
     where
-        C: 'a,
+        F: FnMut(usize, &C),
     {
-        self.container.iter().map(|(i, c)| (*i, c))
+        for (&index, component) in &self.container {
+            f(index, component);
+        }
     }
 
-    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = (usize, &'a mut C)> + 'a
+    #[inline]
+    fn for_each_mut<F>(&mut self, mut f: F)
     where
-        C: 'a,
+        F: FnMut(usize, &mut C),
     {
-        self.container.iter_mut().map(|(i, c)| (*i, c))
+        for (&index, component) in self.container.iter_mut() {
+            f(index, component);
+        }
     }
 
     fn is_sparse(&self) -> bool {

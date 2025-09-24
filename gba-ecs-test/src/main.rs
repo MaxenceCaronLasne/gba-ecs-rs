@@ -15,6 +15,8 @@
 // until you declare the extern crate. `agb` provides an allocator so it will all work
 extern crate alloc;
 
+use core::primitive;
+
 use agb::println;
 use agb::Gba;
 use alloc::vec::Vec;
@@ -134,75 +136,7 @@ impl GetComponentContainer<Strongness> for MyWorld {
     }
 }
 
-struct ZipWhere<A, B, IterA, IterB>
-where
-    IterA: Iterator<Item = (usize, A)>,
-    IterB: Iterator<Item = (usize, B)>,
-{
-    iter_a: IterA,
-    iter_b: IterB,
-    current_a: Option<(usize, A)>,
-    current_b: Option<(usize, B)>,
-}
-
-impl<A, B, IterA, IterB> ZipWhere<A, B, IterA, IterB>
-where
-    IterA: Iterator<Item = (usize, A)>,
-    IterB: Iterator<Item = (usize, B)>,
-{
-    fn new(mut iter_a: IterA, mut iter_b: IterB) -> Self {
-        let current_a = iter_a.next();
-        let current_b = iter_b.next();
-
-        Self {
-            iter_a,
-            iter_b,
-            current_a,
-            current_b,
-        }
-    }
-}
-
-impl<A, B, IterA, IterB> Iterator for ZipWhere<A, B, IterA, IterB>
-where
-    IterA: Iterator<Item = (usize, A)>,
-    IterB: Iterator<Item = (usize, B)>,
-{
-    type Item = (usize, (A, B));
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match (&self.current_a, &self.current_b) {
-                (Some((key_a, _)), Some((key_b, _))) => match key_a.cmp(key_b) {
-                    core::cmp::Ordering::Equal => {
-                        let a = self.current_a.take().unwrap();
-                        let b = self.current_b.take().unwrap();
-                        self.current_a = self.iter_a.next();
-                        self.current_b = self.iter_b.next();
-                        return Some((a.0, (a.1, b.1)));
-                    }
-                    core::cmp::Ordering::Less => {
-                        self.current_a = self.iter_a.next();
-                    }
-                    core::cmp::Ordering::Greater => {
-                        self.current_b = self.iter_b.next();
-                    }
-                },
-                _ => return None,
-            }
-        }
-    }
-}
-
-fn zip_where<A, B, IterA, IterB>(iter_a: IterA, iter_b: IterB) -> ZipWhere<A, B, IterA, IterB>
-where
-    IterA: Iterator<Item = (usize, A)>,
-    IterB: Iterator<Item = (usize, B)>,
-{
-    ZipWhere::new(iter_a, iter_b)
-}
-
-const ITERATIONS: usize = 100;
+const ITERATIONS: usize = 1000;
 
 // The main function must take 1 arguments and never returns, and must be marked with
 // the #[agb::entry] macro.
@@ -248,41 +182,33 @@ fn main(mut gba: agb::Gba) -> ! {
 
     let mut sum = 0;
 
-    bench::start("ecs");
-    for (i, p) in positions.iter() {
-        sum += p.x + p.y;
+    bench::start("ecs base");
+    for i in 0..ITERATIONS {
+        if let Some(p) = positions.get(Entity::new(i)) {
+            sum += p.x + p.y;
+        }
     }
+    bench::stop("ecs base");
+
+    bench::start("ecs");
+    positions.for_each(|i, p| sum += p.x + p.y);
     bench::stop("ecs");
 
-    bench::start("table");
-    for (i, p) in table.iter().enumerate().filter_map(|(i, p)| match p {
-        Some(value) => Some((i, value)),
-        None => None,
-    }) {
-        sum += p.x + p.y;
-    }
-    bench::stop("table");
+    bench::start("double");
+    positions
+        .zip2(velocities)
+        .for_each(|i, p, v| sum += p.x + v.dx);
+    bench::stop("double");
 
-    for (i, p) in positions.iter() {
-        agb::println!("{}: p={:?}", i, p);
+    bench::start("double base");
+    for i in 0..ITERATIONS {
+        if let Some(p) = positions.get(Entity::new(i)) {
+            if let Some(v) = velocities.get(Entity::new(i)) {
+                sum += p.x + v.dx;
+            }
+        }
     }
-
-    for (i, v) in velocities.iter() {
-        agb::println!("{}: v={:?}", i, v);
-    }
-
-    agb::println!(
-        "is sorted {}",
-        strongness.iter().is_sorted_by(|(ia, _), (ib, _)| ia < ib)
-    );
-
-    for (i, s) in strongness.iter() {
-        agb::println!("{}: s={:?}", i, s);
-    }
-
-    for (i, (p, v)) in zip_where(positions.iter(), velocities.iter()) {
-        agb::println!("{}: p={:?}, v={:?}", i, p, v);
-    }
+    bench::stop("double base");
 
     agb::println!("sum={}", sum);
     bench::log();
