@@ -22,7 +22,7 @@ pub trait GetComponentContainer<C> {
 
 pub struct VecComponentContainer<C> {
     pub(crate) container: Vec<Option<C>>,
-    active_indices: Vec<usize>,
+    pub(crate) active_indices: Vec<usize>,
 }
 
 impl<C> VecComponentContainer<C> {

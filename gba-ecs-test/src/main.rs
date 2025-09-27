@@ -147,7 +147,6 @@ fn main(mut gba: agb::Gba) -> ! {
             Position {
                 x: (i as i32),
                 y: 0,
-                ..Default::default()
             },
         );
         if i.is_multiple_of(2) {
@@ -165,7 +164,6 @@ fn main(mut gba: agb::Gba) -> ! {
         table[i] = Some(Position {
             x: (i as i32),
             y: 0,
-            ..Default::default()
         });
     }
 
@@ -218,46 +216,12 @@ mod test {
     struct TestPosition {
         x: i32,
         y: i32,
-        next: Option<usize>,
-        prev: Option<usize>,
-    }
-
-    impl Component for TestPosition {
-        fn next(&self) -> Option<usize> {
-            self.next
-        }
-        fn prev(&self) -> Option<usize> {
-            self.prev
-        }
-        fn set_next(&mut self, next: Option<usize>) {
-            self.next = next;
-        }
-        fn set_prev(&mut self, prev: Option<usize>) {
-            self.prev = prev;
-        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     struct TestVelocity {
         dx: i32,
         dy: i32,
-        next: Option<usize>,
-        prev: Option<usize>,
-    }
-
-    impl Component for TestVelocity {
-        fn next(&self) -> Option<usize> {
-            self.next
-        }
-        fn prev(&self) -> Option<usize> {
-            self.prev
-        }
-        fn set_next(&mut self, next: Option<usize>) {
-            self.next = next;
-        }
-        fn set_prev(&mut self, prev: Option<usize>) {
-            self.prev = prev;
-        }
     }
 
     #[test_case]
@@ -273,18 +237,8 @@ mod test {
         assert_eq!(container.len(), 2);
 
         // Test set and get
-        let pos1 = TestPosition {
-            x: 10,
-            y: 20,
-            next: None,
-            prev: None,
-        };
-        let pos2 = TestPosition {
-            x: 30,
-            y: 40,
-            next: None,
-            prev: None,
-        };
+        let pos1 = TestPosition { x: 10, y: 20 };
+        let pos2 = TestPosition { x: 30, y: 40 };
 
         container.set(entity1, pos1);
         container.set(entity2, pos2);
@@ -312,33 +266,9 @@ mod test {
         container.add_entity(entity2);
 
         // Set components in order: 0, 1, 2
-        container.set(
-            entity0,
-            TestPosition {
-                x: 0,
-                y: 0,
-                next: None,
-                prev: None,
-            },
-        );
-        container.set(
-            entity1,
-            TestPosition {
-                x: 1,
-                y: 1,
-                next: None,
-                prev: None,
-            },
-        );
-        container.set(
-            entity2,
-            TestPosition {
-                x: 2,
-                y: 2,
-                next: None,
-                prev: None,
-            },
-        );
+        container.set(entity0, TestPosition { x: 0, y: 0 });
+        container.set(entity1, TestPosition { x: 1, y: 1 });
+        container.set(entity2, TestPosition { x: 2, y: 2 });
 
         // Sparse traversal should visit in reverse order (2, 1, 0) due to head insertion
         let mut visited = Vec::new();
@@ -347,9 +277,9 @@ mod test {
         });
 
         assert_eq!(visited.len(), 3);
-        assert_eq!(visited[0], (2, 2, 2)); // Last inserted (head)
+        assert_eq!(visited[0], (0, 0, 0)); // First inserted (tail)
         assert_eq!(visited[1], (1, 1, 1)); // Middle
-        assert_eq!(visited[2], (0, 0, 0)); // First inserted (tail)
+        assert_eq!(visited[2], (2, 2, 2)); // Last inserted (head)
     }
 
     #[test_case]
@@ -362,24 +292,8 @@ mod test {
         container.add_entity(entity0);
         container.add_entity(entity1);
 
-        container.set(
-            entity0,
-            TestPosition {
-                x: 0,
-                y: 0,
-                next: None,
-                prev: None,
-            },
-        );
-        container.set(
-            entity1,
-            TestPosition {
-                x: 1,
-                y: 1,
-                next: None,
-                prev: None,
-            },
-        );
+        container.set(entity0, TestPosition { x: 0, y: 0 });
+        container.set(entity1, TestPosition { x: 1, y: 1 });
 
         // Modify through sparse traversal
         container.for_each_sparse_mut(|_index, pos| {
@@ -413,33 +327,9 @@ mod test {
         container.add_entity(entity4);
 
         // Only set components for 0, 2, 4 (creating gaps at 1, 3)
-        container.set(
-            entity0,
-            TestPosition {
-                x: 0,
-                y: 0,
-                next: None,
-                prev: None,
-            },
-        );
-        container.set(
-            entity2,
-            TestPosition {
-                x: 2,
-                y: 2,
-                next: None,
-                prev: None,
-            },
-        );
-        container.set(
-            entity4,
-            TestPosition {
-                x: 4,
-                y: 4,
-                next: None,
-                prev: None,
-            },
-        );
+        container.set(entity0, TestPosition { x: 0, y: 0 });
+        container.set(entity2, TestPosition { x: 2, y: 2 });
+        container.set(entity4, TestPosition { x: 4, y: 4 });
 
         // Dense traversal should visit all 3 components
         let mut dense_count = 0;
@@ -462,57 +352,6 @@ mod test {
             sparse_indices.push(index);
         });
 
-        assert_eq!(sparse_indices, vec![4, 2, 0]);
-    }
-
-    #[test_case]
-    fn test_linked_list_integrity(_agb: &mut agb::Gba) {
-        let mut container = VecComponentContainer::<TestPosition>::new();
-
-        // Add several entities
-        for i in 0..5 {
-            let entity = Entity::new(i);
-            container.add_entity(entity);
-            container.set(
-                entity,
-                TestPosition {
-                    x: i as i32,
-                    y: (i * 2) as i32,
-                    next: None,
-                    prev: None,
-                },
-            );
-        }
-
-        // Check that linked list connections are correct
-        let mut current_index = 4; // Should start from last inserted (head)
-        let mut count = 0;
-
-        container.for_each_sparse(|index, pos| {
-            assert_eq!(index, current_index);
-            assert_eq!(pos.x, current_index as i32);
-            assert_eq!(pos.y, (current_index * 2) as i32);
-
-            if current_index > 0 {
-                // Check that this component points to the previous one
-                assert_eq!(pos.next(), Some(current_index - 1));
-            } else {
-                // Last component should have no next
-                assert_eq!(pos.next(), None);
-            }
-
-            if count > 0 {
-                // Non-head components should have a prev pointer
-                assert_eq!(pos.prev(), Some(current_index + 1));
-            } else {
-                // Head component should have no prev
-                assert_eq!(pos.prev(), None);
-            }
-
-            current_index = current_index.wrapping_sub(1);
-            count += 1;
-        });
-
-        assert_eq!(count, 5);
+        assert_eq!(sparse_indices, vec![0, 2, 4]);
     }
 }
