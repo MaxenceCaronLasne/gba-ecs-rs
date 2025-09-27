@@ -20,10 +20,7 @@ use core::primitive;
 use agb::println;
 use agb::Gba;
 use alloc::vec::Vec;
-use gba_ecs_rs::{
-    zip, zip3, ComponentContainer, DenseComponentContainer, DenseMarkerContainer, Entity,
-    GetComponentContainer, MarkerContainer, SparseComponentContainer, SparseMarkerContainer,
-};
+use gba_ecs_rs::{zip, zip3, ComponentContainer, VecComponentContainer, Entity, GetComponentContainer};
 
 mod bench;
 
@@ -52,20 +49,18 @@ trait World {
 
 struct MyWorld {
     last_entity: usize,
-    is_enemy: SparseMarkerContainer,
-    positions: DenseComponentContainer<Position>,
-    velocities: DenseComponentContainer<Velocity>,
-    strongness: DenseComponentContainer<Strongness>,
+    positions: VecComponentContainer<Position>,
+    velocities: VecComponentContainer<Velocity>,
+    strongness: VecComponentContainer<Strongness>,
 }
 
 impl World for MyWorld {
     fn new() -> Self {
         Self {
             last_entity: 0,
-            is_enemy: SparseMarkerContainer::new(),
-            positions: DenseComponentContainer::new(),
-            velocities: DenseComponentContainer::new(),
-            strongness: DenseComponentContainer::new(),
+            positions: VecComponentContainer::new(),
+            velocities: VecComponentContainer::new(),
+            strongness: VecComponentContainer::new(),
         }
     }
 
@@ -73,7 +68,6 @@ impl World for MyWorld {
         let entity = Entity::new(self.last_entity);
         self.last_entity += 1;
 
-        self.is_enemy.add_entity(entity);
         self.positions.add_entity(entity);
         self.velocities.add_entity(entity);
         self.strongness.add_entity(entity);
@@ -107,7 +101,7 @@ impl MyWorld {
 }
 
 impl GetComponentContainer<Position> for MyWorld {
-    type Container = DenseComponentContainer<Position>;
+    type Container = VecComponentContainer<Position>;
     fn get_components(&self) -> &Self::Container {
         &self.positions
     }
@@ -117,7 +111,7 @@ impl GetComponentContainer<Position> for MyWorld {
 }
 
 impl GetComponentContainer<Velocity> for MyWorld {
-    type Container = DenseComponentContainer<Velocity>;
+    type Container = VecComponentContainer<Velocity>;
     fn get_components(&self) -> &Self::Container {
         &self.velocities
     }
@@ -127,7 +121,7 @@ impl GetComponentContainer<Velocity> for MyWorld {
 }
 
 impl GetComponentContainer<Strongness> for MyWorld {
-    type Container = DenseComponentContainer<Strongness>;
+    type Container = VecComponentContainer<Strongness>;
     fn get_components(&self) -> &Self::Container {
         &self.strongness
     }
