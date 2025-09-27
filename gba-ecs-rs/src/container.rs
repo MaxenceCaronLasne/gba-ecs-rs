@@ -3,6 +3,13 @@ extern crate alloc;
 use crate::Entity;
 use alloc::vec::Vec;
 
+pub trait Component {
+    fn prev(&self) -> Option<usize>;
+    fn next(&self) -> Option<usize>;
+    fn set_prev(&mut self, prev: Option<usize>);
+    fn set_next(&mut self, next: Option<usize>);
+}
+
 pub trait ComponentContainer<C> {
     fn add_entity(&mut self, entity: Entity);
     fn set(&mut self, entity: Entity, component: C);
@@ -21,12 +28,14 @@ pub trait GetComponentContainer<C> {
 
 pub struct VecComponentContainer<C> {
     pub(crate) container: Vec<Option<C>>,
+    head: Option<usize>,
 }
 
 impl<C> VecComponentContainer<C> {
     pub fn new() -> Self {
         Self {
             container: Vec::new(),
+            head: None,
         }
     }
 
@@ -65,9 +74,44 @@ impl<C> VecComponentContainer<C> {
             }
         }
     }
+
+    #[inline]
+    pub fn for_each_sparse<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, &C),
+        C: Component,
+    {
+        let mut current = self.head;
+        while let Some(index) = current {
+            if let Some(Some(component)) = self.container.get(index) {
+                f(index, component);
+                current = component.next();
+            } else {
+                break;
+            }
+        }
+    }
+
+    #[inline]
+    pub fn for_each_sparse_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize, &mut C),
+        C: Component,
+    {
+        let mut current = self.head;
+        while let Some(index) = current {
+            if let Some(Some(component)) = self.container.get_mut(index) {
+                let next = component.next();
+                f(index, component);
+                current = next;
+            } else {
+                break;
+            }
+        }
+    }
 }
 
-impl<C> ComponentContainer<C> for VecComponentContainer<C> {
+impl<C: Component> ComponentContainer<C> for VecComponentContainer<C> {
     fn add_entity(&mut self, entity: Entity) {
         while self.container.len() <= entity.index {
             self.container.push(None);
@@ -114,8 +158,20 @@ impl<C> ComponentContainer<C> for VecComponentContainer<C> {
         return None;
     }
 
-    fn set(&mut self, entity: Entity, component: C) {
-        self.container[entity.index] = Some(component);
+    fn set(&mut self, entity: Entity, mut component: C) {
+        let index = entity.index;
+
+        component.set_prev(None);
+        component.set_next(self.head);
+
+        if let Some(old_head) = self.head {
+            if let Some(Some(old_head_component)) = self.container.get_mut(old_head) {
+                old_head_component.set_prev(Some(index));
+            }
+        }
+
+        self.container[index] = Some(component);
+        self.head = Some(index);
     }
 
     fn len(&self) -> usize {
