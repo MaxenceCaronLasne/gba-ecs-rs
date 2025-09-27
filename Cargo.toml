@@ -4,4 +4,13 @@ resolver = "2"
 
 [workspace.dependencies]
 agb = { version = "0.22.5" }
-portable-atomic = { version = "1.11.1", features = [] }
+portable-atomic = { version = "1.11.1", default-features = false }
+
+[profile.dev]
+opt-level = 3
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+debug = true

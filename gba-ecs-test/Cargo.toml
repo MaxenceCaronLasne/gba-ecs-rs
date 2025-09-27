@@ -12,12 +12,3 @@ path = "src/main.rs"
 gba-ecs-rs = { path = "../gba-ecs-rs" }
 agb = { workspace = true }
 portable-atomic = { workspace = true }
-
-[profile.dev]
-opt-level = 3
-debug = true
-
-[profile.release]
-opt-level = 3
-lto = "fat"
-debug = true
