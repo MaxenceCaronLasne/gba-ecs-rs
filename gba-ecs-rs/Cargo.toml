@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 agb = { workspace = true }
 portable-atomic = { workspace = true }
-gba-ecs-derive = { path = "../gba-ecs-derive" }
 
 # [profile.dev]
 # opt-level = 3

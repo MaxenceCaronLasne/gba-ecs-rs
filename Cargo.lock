@@ -246,20 +246,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "gba-ecs-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "gba-ecs-rs"
 version = "0.1.0"
 dependencies = [
  "agb",
- "gba-ecs-derive",
  "portable-atomic",
 ]
 

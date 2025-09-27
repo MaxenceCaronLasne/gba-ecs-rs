@@ -1,5 +1,5 @@
 [workspace]
-members = ["gba-ecs-rs", "gba-ecs-test", "gba-ecs-derive"]
+members = ["gba-ecs-rs", "gba-ecs-test"]
 resolver = "2"
 
 [workspace.dependencies]

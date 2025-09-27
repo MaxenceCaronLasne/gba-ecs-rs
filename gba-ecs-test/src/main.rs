@@ -15,33 +15,25 @@
 // until you declare the extern crate. `agb` provides an allocator so it will all work
 extern crate alloc;
 
-use gba_ecs_rs::{
-    zip3, Component, ComponentContainer, Entity, GetComponentContainer, VecComponentContainer,
-};
+use gba_ecs_rs::{zip3, ComponentContainer, Entity, GetComponentContainer, VecComponentContainer};
 
 mod bench;
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Position {
     x: i32,
     y: i32,
-    next: Option<usize>,
-    prev: Option<usize>,
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Velocity {
     dx: i32,
     dy: i32,
-    next: Option<usize>,
-    prev: Option<usize>,
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Strongness {
     value: i32,
-    next: Option<usize>,
-    prev: Option<usize>,
 }
 
 trait World {
@@ -164,20 +156,11 @@ fn main(mut gba: agb::Gba) -> ! {
                 Velocity {
                     dx: 0,
                     dy: (i as i32),
-                    next: None,
-                    prev: None,
                 },
             );
         }
         if i.is_multiple_of(8) {
-            world.add_component(
-                entity,
-                Strongness {
-                    value: i as i32,
-                    next: None,
-                    prev: None,
-                },
-            );
+            world.add_component(entity, Strongness { value: i as i32 });
         }
         table[i] = Some(Position {
             x: (i as i32),
@@ -201,7 +184,7 @@ fn main(mut gba: agb::Gba) -> ! {
     bench::stop("ecs base");
 
     bench::start("ecs");
-    positions.for_each_sparse(|_, p| sum += p.x + p.y);
+    positions.for_each(|_, p| sum += p.x + p.y);
     bench::stop("ecs");
 
     bench::start("double");
