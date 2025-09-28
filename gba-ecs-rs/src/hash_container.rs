@@ -83,4 +83,22 @@ impl<C, A: Allocator + Clone> crate::ComponentContainer<C> for HashComponentCont
     fn len(&self) -> usize {
         self.container.len()
     }
+
+    fn for_each<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, &C),
+    {
+        self.container.iter().for_each(|(index, component)| {
+            f(*index, component);
+        });
+    }
+
+    fn for_each_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize, &mut C),
+    {
+        self.container.iter_mut().for_each(|(index, component)| {
+            f(*index, component);
+        });
+    }
 }

@@ -150,4 +150,38 @@ impl<C, A: Allocator + Clone> ComponentContainer<C> for VecComponentContainer<C,
     fn len(&self) -> usize {
         self.container.len()
     }
+
+    fn for_each<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, &C),
+    {
+        let len = self.container.len();
+        let ptr = self.container.as_ptr();
+
+        for index in 0..len {
+            unsafe {
+                let val = &*ptr.add(index);
+                if let Some(component) = val {
+                    f(index, component);
+                }
+            }
+        }
+    }
+
+    fn for_each_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(usize, &mut C),
+    {
+        let len = self.container.len();
+        let ptr = self.container.as_mut_ptr();
+
+        for index in 0..len {
+            unsafe {
+                let val = &mut *ptr.add(index);
+                if let Some(component) = val {
+                    f(index, component);
+                }
+            }
+        }
+    }
 }

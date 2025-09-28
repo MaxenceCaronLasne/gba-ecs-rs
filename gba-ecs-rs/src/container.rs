@@ -13,6 +13,16 @@ pub trait ComponentContainer<C> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Iterate over all components with their entity indices
+    fn for_each<F>(&self, f: F)
+    where
+        F: FnMut(usize, &C);
+
+    /// Iterate over all components with their entity indices (mutable)
+    fn for_each_mut<F>(&mut self, f: F)
+    where
+        F: FnMut(usize, &mut C);
 }
 
 pub trait GetComponentContainer<C> {

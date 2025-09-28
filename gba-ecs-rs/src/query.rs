@@ -1,67 +1,42 @@
-use crate::{GetComponentContainer, World, WorldContainer};
+use crate::{ComponentContainer, Entity, GetComponentContainer, World, WorldContainer};
 
-pub trait Query<'a> {
+pub trait Query<'a, WC: WorldContainer> {
     type Item;
 
-    fn for_each<WC, F>(world: &'a World<WC>, f: F)
+    fn for_each<F>(world: &'a World<WC>, f: F)
     where
-        WC: WorldContainer,
         F: FnMut(usize, Self::Item);
 }
 
-pub trait QueryMut<'a> {
-    type Item;
-
-    fn for_each_mut<WC, F>(world: &'a mut World<WC>, f: F)
-    where
-        WC: WorldContainer,
-        F: FnMut(usize, Self::Item);
-}
-
-impl<'a, A: 'a, B: 'a> Query<'a> for (&A, &B) {
+impl<'a, A: 'a, B: 'a, WC> Query<'a, WC> for (&A, &B)
+where
+    WC: WorldContainer + GetComponentContainer<A> + GetComponentContainer<B>,
+    <WC as GetComponentContainer<A>>::Container: ComponentContainer<A>,
+    <WC as GetComponentContainer<B>>::Container: ComponentContainer<B>,
+{
     type Item = (&'a A, &'a B);
 
-    fn for_each<WC, F>(world: &'a World<WC>, f: F)
+    fn for_each<F>(world: &'a World<WC>, mut f: F)
     where
-        WC: WorldContainer,
         F: FnMut(usize, Self::Item),
     {
-        todo!("Implement (&A, &B) query")
-    }
-}
+        let container_a = world.get::<A>();
+        let container_b = world.get::<B>();
 
-impl<'a, A: 'a, B: 'a> QueryMut<'a> for (&mut A, &B) {
-    type Item = (&'a mut A, &'a B);
+        // Use unsafe to extend lifetime - this is safe because the world reference
+        // lives for 'a and the components are borrowed from it
+        unsafe {
+            let container_a_ptr = container_a as *const <WC as GetComponentContainer<A>>::Container;
+            let container_b_ptr = container_b as *const <WC as GetComponentContainer<B>>::Container;
 
-    fn for_each_mut<WC, F>(world: &'a mut World<WC>, f: F)
-    where
-        WC: WorldContainer,
-        F: FnMut(usize, Self::Item),
-    {
-        todo!("Implement (&mut A, &B) query")
-    }
-}
-
-impl<'a, A: 'a, B: 'a> QueryMut<'a> for (&A, &mut B) {
-    type Item = (&'a A, &'a mut B);
-
-    fn for_each_mut<WC, F>(world: &'a mut World<WC>, f: F)
-    where
-        WC: WorldContainer,
-        F: FnMut(usize, Self::Item),
-    {
-        todo!("Implement (&A, &mut B) query")
-    }
-}
-
-impl<'a, A: 'a, B: 'a> QueryMut<'a> for (&mut A, &mut B) {
-    type Item = (&'a mut A, &'a mut B);
-
-    fn for_each_mut<WC, F>(world: &'a mut World<WC>, f: F)
-    where
-        WC: WorldContainer,
-        F: FnMut(usize, Self::Item),
-    {
-        todo!("Implement (&mut A, &mut B) query")
+            (*container_a_ptr).for_each(|entity_index, component_a| {
+                let entity = Entity::new(entity_index);
+                if let Some(component_b) = (*container_b_ptr).get(entity) {
+                    let component_a_extended: &'a A = core::mem::transmute(component_a);
+                    let component_b_extended: &'a B = core::mem::transmute(component_b);
+                    f(entity_index, (component_a_extended, component_b_extended));
+                }
+            });
+        }
     }
 }

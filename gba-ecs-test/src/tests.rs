@@ -233,5 +233,17 @@ mod test {
 
         assert_eq!(query_results.len(), 1);
         assert_eq!(query_results[0], (0, 10, 20, 1, 2));
+
+        // Test mutable query - add to positions based on velocity
+        world.for_each_mut::<(&mut TestPosition, &TestVelocity), _>(|_entity, (pos, vel)| {
+            pos.x += vel.dx;
+            pos.y += vel.dy;
+        });
+
+        // Verify the mutation worked
+        let positions = world.get::<TestPosition>();
+        let pos1 = positions.get(entity1).unwrap();
+        assert_eq!(pos1.x, 11);
+        assert_eq!(pos1.y, 22);
     }
 }

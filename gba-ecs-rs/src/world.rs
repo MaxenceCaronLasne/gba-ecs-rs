@@ -1,4 +1,3 @@
-use crate::query::{Query, QueryMut};
 use crate::{ComponentContainer, Entity, GetComponentContainer};
 
 pub struct World<WC: WorldContainer> {
@@ -44,18 +43,10 @@ impl<WC: WorldContainer> World<WC> {
 
     pub fn for_each<Q, F>(&self, f: F)
     where
-        Q: for<'a> Query<'a>,
-        F: FnMut(usize, <Q as Query<'_>>::Item),
+        Q: for<'a> crate::query::Query<'a, WC>,
+        F: FnMut(usize, <Q as crate::query::Query<'_, WC>>::Item),
     {
         Q::for_each(self, f);
-    }
-
-    pub fn for_each_mut<Q, F>(&mut self, f: F)
-    where
-        Q: for<'a> QueryMut<'a>,
-        F: FnMut(usize, <Q as QueryMut<'_>>::Item),
-    {
-        Q::for_each_mut(self, f);
     }
 }
 
