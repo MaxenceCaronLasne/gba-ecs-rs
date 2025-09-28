@@ -213,4 +213,25 @@ mod test {
 
         assert_eq!(sparse_indices, vec![0, 2, 4]);
     }
+
+    #[test_case]
+    fn test_new_query_api(_agb: &mut agb::Gba) {
+        let mut world = World::<MacroTestWorld>::new();
+
+        let entity1 = world.spawn();
+        let entity2 = world.spawn();
+
+        world.add(entity1, TestPosition { x: 10, y: 20 });
+        world.add(entity1, TestVelocity { dx: 1, dy: 2 });
+        world.add(entity2, TestPosition { x: 30, y: 40 });
+
+        // Test immutable query
+        let mut query_results = Vec::new();
+        world.for_each::<(&TestPosition, &TestVelocity), _>(|entity, (pos, vel)| {
+            query_results.push((entity, pos.x, pos.y, vel.dx, vel.dy));
+        });
+
+        assert_eq!(query_results.len(), 1);
+        assert_eq!(query_results[0], (0, 10, 20, 1, 2));
+    }
 }
