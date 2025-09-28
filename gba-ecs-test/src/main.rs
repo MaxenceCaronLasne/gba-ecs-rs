@@ -5,32 +5,17 @@
 #![cfg_attr(test, test_runner(agb::test_runner::test_runner))]
 
 extern crate alloc;
-use agb::ExternalAllocator;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use gba_ecs_rs::{world, zip, zip3, ComponentContainer, Entity, World};
+use gba_ecs_rs::{zip, zip3, ComponentContainer, Entity, World};
 
 mod bench;
+mod component;
 mod tests;
+mod world;
 
-#[derive(Clone, Copy, Debug, Default)]
-struct Modulo1(i32);
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Modulo2(i32);
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Modulo8(i32);
-
-#[derive(Clone, Copy, Debug, Default)]
-struct Unique(i32);
-
-world!(MyWorld {
-    (Modulo1, ExternalAllocator),
-    (Modulo2, ExternalAllocator),
-    (Modulo8, ExternalAllocator),
-    (Unique, ExternalAllocator),
-});
+use component::{Modulo1, Modulo2, Modulo8, Unique};
+use world::MyWorldContainer;
 
 const ITERATIONS: usize = 1000;
 
@@ -38,7 +23,7 @@ const ITERATIONS: usize = 1000;
 fn main(mut gba: agb::Gba) -> ! {
     let mut timers = gba.timers.timers();
     bench::init(&mut timers);
-    let mut world = MyWorld::new();
+    let mut world = World::<MyWorldContainer>::new();
 
     let mut modulo1_vec = Vec::<Option<Modulo1>>::new();
     let mut modulo2_vec = Vec::<Option<Modulo2>>::new();
@@ -46,34 +31,34 @@ fn main(mut gba: agb::Gba) -> ! {
     let unique = Box::new(Some(Unique(0)));
 
     for i in 0..ITERATIONS {
-        let entity = world.add_entity();
+        let entity = world.spawn();
 
-        world.add_component(entity, Modulo1(i as i32));
+        world.add(entity, Modulo1(i as i32));
         modulo1_vec.push(Some(Modulo1(i as i32)));
 
         if i == ITERATIONS / 2 {
-            world.add_component(entity, Unique(i as i32));
+            world.add(entity, Unique(i as i32));
         }
 
         if i.is_multiple_of(2) {
-            world.add_component(entity, Modulo2(2 * i as i32));
+            world.add(entity, Modulo2(2 * i as i32));
             modulo2_vec.push(Some(Modulo2(2 * i as i32)));
         } else {
             modulo2_vec.push(None);
         }
 
         if i.is_multiple_of(8) {
-            world.add_component(entity, Modulo8(8 * i as i32));
+            world.add(entity, Modulo8(8 * i as i32));
             modulo8_vec.push(Some(Modulo8(8 * i as i32)));
         } else {
             modulo8_vec.push(None);
         }
     }
 
-    let modulo1_container = world.get_components::<Modulo1>();
-    let modulo2_container = world.get_components::<Modulo2>();
-    let modulo8_container = world.get_components::<Modulo8>();
-    let unique_container = world.get_components::<Unique>();
+    let modulo1_container = world.get::<Modulo1>();
+    let modulo2_container = world.get::<Modulo2>();
+    let modulo8_container = world.get::<Modulo8>();
+    let unique_container = world.get::<Unique>();
 
     let mut sum = 0;
 

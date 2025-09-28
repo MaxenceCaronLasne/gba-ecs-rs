@@ -3,7 +3,7 @@ mod test {
     use agb::{ExternalAllocator, InternalAllocator};
     use alloc::vec;
     use alloc::vec::Vec;
-    use gba_ecs_rs::{world, ComponentContainer, Entity, VecComponentContainer, World};
+    use gba_ecs_rs::{ComponentContainer, Entity, VecComponentContainer, World};
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     struct TestPosition {
@@ -17,29 +17,57 @@ mod test {
         dy: i32,
     }
 
-    world!(MacroTestWorld {
-        (TestPosition, ExternalAllocator),
-        (TestVelocity, InternalAllocator)
-    });
+    struct MacroTestWorld {
+        test_position: VecComponentContainer<TestPosition, ExternalAllocator>,
+        test_velocity: VecComponentContainer<TestVelocity, InternalAllocator>,
+    }
 
-    world!(BackwardCompatWorld {
-        TestPosition,
-        TestVelocity
-    });
+    impl gba_ecs_rs::WorldContainer for MacroTestWorld {
+        fn new() -> Self {
+            Self {
+                test_position: VecComponentContainer::new_in(ExternalAllocator),
+                test_velocity: VecComponentContainer::new_in(InternalAllocator),
+            }
+        }
+        fn add_entity(&mut self, entity: Entity) {
+            self.test_position.add_entity(entity);
+            self.test_velocity.add_entity(entity);
+        }
+    }
+
+    impl gba_ecs_rs::GetComponentContainer<TestPosition> for MacroTestWorld {
+        type Container = VecComponentContainer<TestPosition, ExternalAllocator>;
+        fn get_components(&self) -> &Self::Container {
+            &self.test_position
+        }
+        fn get_components_mut(&mut self) -> &mut Self::Container {
+            &mut self.test_position
+        }
+    }
+
+    impl gba_ecs_rs::GetComponentContainer<TestVelocity> for MacroTestWorld {
+        type Container = VecComponentContainer<TestVelocity, InternalAllocator>;
+        fn get_components(&self) -> &Self::Container {
+            &self.test_velocity
+        }
+        fn get_components_mut(&mut self) -> &mut Self::Container {
+            &mut self.test_velocity
+        }
+    }
 
     #[test_case]
     fn test_world_macro(_agb: &mut agb::Gba) {
-        let mut world = MacroTestWorld::new();
+        let mut world = World::<MacroTestWorld>::new();
 
-        let entity1 = world.add_entity();
-        let entity2 = world.add_entity();
+        let entity1 = world.spawn();
+        let entity2 = world.spawn();
 
-        world.add_component(entity1, TestPosition { x: 10, y: 20 });
-        world.add_component(entity1, TestVelocity { dx: 1, dy: 2 });
-        world.add_component(entity2, TestPosition { x: 30, y: 40 });
+        world.add(entity1, TestPosition { x: 10, y: 20 });
+        world.add(entity1, TestVelocity { dx: 1, dy: 2 });
+        world.add(entity2, TestPosition { x: 30, y: 40 });
 
-        let positions = world.get_components::<TestPosition>();
-        let velocities = world.get_components::<TestVelocity>();
+        let positions = world.get::<TestPosition>();
+        let velocities = world.get::<TestVelocity>();
 
         let pos1 = positions.get(entity1).unwrap();
         assert_eq!(pos1.x, 10);
@@ -55,30 +83,16 @@ mod test {
 
         assert!(velocities.get(entity2).is_none());
 
-        let positions_mut = world.get_components_mut::<TestPosition>();
+        let positions_mut = world.get_mut::<TestPosition>();
         if let Some(pos) = positions_mut.get_mut(entity1) {
             pos.x += 5;
             pos.y += 10;
         }
 
-        let positions = world.get_components::<TestPosition>();
+        let positions = world.get::<TestPosition>();
         let pos1 = positions.get(entity1).unwrap();
         assert_eq!(pos1.x, 15);
         assert_eq!(pos1.y, 30);
-    }
-
-    #[test_case]
-    fn test_backward_compatibility(_agb: &mut agb::Gba) {
-        let mut world = BackwardCompatWorld::new();
-
-        let entity = world.add_entity();
-
-        world.add_component(entity, TestPosition { x: 42, y: 84 });
-
-        let positions = world.get_components::<TestPosition>();
-        let pos = positions.get(entity).unwrap();
-        assert_eq!(pos.x, 42);
-        assert_eq!(pos.y, 84);
     }
 
     #[test_case]

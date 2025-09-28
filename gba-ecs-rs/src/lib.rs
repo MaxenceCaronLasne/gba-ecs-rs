@@ -11,4 +11,5 @@ mod zip;
 pub use container::{ComponentContainer, GetComponentContainer, VecComponentContainer};
 pub use entity::Entity;
 pub use world::World;
+pub use world::WorldContainer;
 pub use zip::{zip, zip3, ZippedQuery2, ZippedQuery3};
