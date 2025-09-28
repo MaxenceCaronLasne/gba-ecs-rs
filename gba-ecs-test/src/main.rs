@@ -14,7 +14,7 @@ mod component;
 mod tests;
 mod world;
 
-use component::{Modulo1, Modulo2, Modulo8, Unique};
+use component::{Modulo1, Modulo2, Modulo8, Unique1, Unique2};
 use world::MyWorldContainer;
 
 const ITERATIONS: usize = 1000;
@@ -28,7 +28,7 @@ fn main(mut gba: agb::Gba) -> ! {
     let mut modulo1_vec = Vec::<Option<Modulo1>>::new();
     let mut modulo2_vec = Vec::<Option<Modulo2>>::new();
     let mut modulo8_vec = Vec::<Option<Modulo8>>::new();
-    let unique = Box::new(Some(Unique(0)));
+    let unique = Box::new(Some(Unique1(0)));
 
     for i in 0..ITERATIONS {
         let entity = world.spawn();
@@ -37,7 +37,7 @@ fn main(mut gba: agb::Gba) -> ! {
         modulo1_vec.push(Some(Modulo1(i as i32)));
 
         if i == ITERATIONS / 2 {
-            world.add(entity, Unique(i as i32));
+            world.add(entity, Unique1(i as i32));
         }
 
         if i.is_multiple_of(2) {
@@ -58,7 +58,8 @@ fn main(mut gba: agb::Gba) -> ! {
     let modulo1_container = world.get::<Modulo1>();
     let modulo2_container = world.get::<Modulo2>();
     let modulo8_container = world.get::<Modulo8>();
-    let unique_container = world.get::<Unique>();
+    let unique_vec_container = world.get::<Unique1>();
+    let unique_hash_container = world.get::<Unique2>();
 
     let mut sum = 0;
 
@@ -187,7 +188,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("unique");
-    zip(unique_container, modulo1_container).for_each(|_e, u, m1| {
+    zip(unique_vec_container, modulo1_container).for_each(|_e, u, m1| {
         sum += u.0 + m1.0;
     });
     bench::stop("unique");
@@ -195,7 +196,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("unique sparse");
-    zip(unique_container, modulo1_container).for_each_sparse_mut(|_e, u, m1| {
+    zip(unique_vec_container, modulo1_container).for_each_sparse_mut(|_e, u, m1| {
         sum += u.0 + m1.0;
     });
     bench::stop("unique sparse");
@@ -203,7 +204,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("unique hand");
-    let ou = *unique;
+    let ou = unique_hash_container.get(Entity::new(ITERATIONS / 2));
     let om1 = modulo1_container.get(Entity::new(ITERATIONS / 2));
 
     if let (Some(u), Some(m1)) = (ou, om1) {

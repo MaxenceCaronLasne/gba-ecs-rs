@@ -1,14 +1,17 @@
-use crate::{Modulo1, Modulo2, Modulo8, Unique};
+use crate::{Modulo1, Modulo2, Modulo8, Unique1, Unique2};
 use agb::ExternalAllocator;
+use agb::InternalAllocator;
 use gba_ecs_rs::{
-    ComponentContainer, Entity, GetComponentContainer, VecComponentContainer, WorldContainer,
+    ComponentContainer, Entity, GetComponentContainer, HashComponentContainer,
+    VecComponentContainer, WorldContainer,
 };
 
 pub struct MyWorldContainer {
     modulo1: VecComponentContainer<Modulo1, ExternalAllocator>,
     modulo2: VecComponentContainer<Modulo2, ExternalAllocator>,
     modulo8: VecComponentContainer<Modulo8, ExternalAllocator>,
-    unique: VecComponentContainer<Unique, ExternalAllocator>,
+    unique_vec: VecComponentContainer<Unique1, ExternalAllocator>,
+    unique_hash: HashComponentContainer<Unique2, InternalAllocator>,
 }
 
 impl WorldContainer for MyWorldContainer {
@@ -17,7 +20,8 @@ impl WorldContainer for MyWorldContainer {
             modulo1: VecComponentContainer::new_in(ExternalAllocator),
             modulo2: VecComponentContainer::new_in(ExternalAllocator),
             modulo8: VecComponentContainer::new_in(ExternalAllocator),
-            unique: VecComponentContainer::new_in(ExternalAllocator),
+            unique_vec: VecComponentContainer::new_in(ExternalAllocator),
+            unique_hash: HashComponentContainer::new_in(InternalAllocator),
         }
     }
 
@@ -25,7 +29,8 @@ impl WorldContainer for MyWorldContainer {
         self.modulo1.add_entity(entity);
         self.modulo2.add_entity(entity);
         self.modulo8.add_entity(entity);
-        self.unique.add_entity(entity);
+        self.unique_vec.add_entity(entity);
+        self.unique_hash.add_entity(entity);
     }
 }
 
@@ -59,12 +64,22 @@ impl GetComponentContainer<Modulo8> for MyWorldContainer {
     }
 }
 
-impl GetComponentContainer<Unique> for MyWorldContainer {
-    type Container = VecComponentContainer<Unique, ExternalAllocator>;
+impl GetComponentContainer<Unique1> for MyWorldContainer {
+    type Container = VecComponentContainer<Unique1, ExternalAllocator>;
     fn get_components(&self) -> &Self::Container {
-        &self.unique
+        &self.unique_vec
     }
     fn get_components_mut(&mut self) -> &mut Self::Container {
-        &mut self.unique
+        &mut self.unique_vec
+    }
+}
+
+impl GetComponentContainer<Unique2> for MyWorldContainer {
+    type Container = HashComponentContainer<Unique2, InternalAllocator>;
+    fn get_components(&self) -> &Self::Container {
+        &self.unique_hash
+    }
+    fn get_components_mut(&mut self) -> &mut Self::Container {
+        &mut self.unique_hash
     }
 }
