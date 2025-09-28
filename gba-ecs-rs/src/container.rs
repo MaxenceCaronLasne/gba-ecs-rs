@@ -1,8 +1,8 @@
 extern crate alloc;
 
 use crate::Entity;
+use alloc::alloc::Allocator;
 use alloc::vec::Vec;
-
 
 pub trait ComponentContainer<C> {
     fn add_entity(&mut self, entity: Entity);
@@ -12,6 +12,9 @@ pub trait ComponentContainer<C> {
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C>;
     fn get_index_mut(&mut self, entity: usize) -> Option<&mut C>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 pub trait GetComponentContainer<C> {
@@ -20,9 +23,9 @@ pub trait GetComponentContainer<C> {
     fn get_components_mut(&mut self) -> &mut Self::Container;
 }
 
-pub struct VecComponentContainer<C> {
-    pub(crate) container: Vec<Option<C>>,
-    pub(crate) active_indices: Vec<usize>,
+pub struct VecComponentContainer<C, A: Allocator = alloc::alloc::Global> {
+    pub(crate) container: Vec<Option<C>, A>,
+    pub(crate) active_indices: Vec<usize, A>,
 }
 
 impl<C> VecComponentContainer<C> {
@@ -30,6 +33,21 @@ impl<C> VecComponentContainer<C> {
         Self {
             container: Vec::new(),
             active_indices: Vec::new(),
+        }
+    }
+}
+
+impl<C> Default for VecComponentContainer<C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<C, A: Allocator + Clone> VecComponentContainer<C, A> {
+    pub fn new_in(allocator: A) -> Self {
+        Self {
+            container: Vec::new_in(allocator.clone()),
+            active_indices: Vec::new_in(allocator),
         }
     }
 
@@ -94,7 +112,7 @@ impl<C> VecComponentContainer<C> {
     }
 }
 
-impl<C> ComponentContainer<C> for VecComponentContainer<C> {
+impl<C, A: Allocator + Clone> ComponentContainer<C> for VecComponentContainer<C, A> {
     fn add_entity(&mut self, entity: Entity) {
         while self.container.len() <= entity.index {
             self.container.push(None);
@@ -102,56 +120,48 @@ impl<C> ComponentContainer<C> for VecComponentContainer<C> {
     }
 
     fn get(&self, entity: Entity) -> Option<&C> {
-        if let Some(maybe_component) = self.container.get(entity.index) {
-            if let Some(component) = maybe_component {
-                return Some(component);
-            }
+        if let Some(Some(component)) = self.container.get(entity.index) {
+            return Some(component);
         }
 
-        return None;
+        None
     }
 
     fn get_index(&self, entity: usize) -> Option<&C> {
-        if let Some(maybe_component) = self.container.get(entity) {
-            if let Some(component) = maybe_component {
-                return Some(component);
-            }
+        if let Some(Some(component)) = self.container.get(entity) {
+            return Some(component);
         }
 
-        return None;
+        None
     }
 
     fn get_mut(&mut self, entity: Entity) -> Option<&mut C> {
-        if let Some(maybe_component) = self.container.get_mut(entity.index) {
-            if let Some(component) = maybe_component {
-                return Some(component);
-            }
+        if let Some(Some(component)) = self.container.get_mut(entity.index) {
+            return Some(component);
         }
 
-        return None;
+        None
     }
 
     fn get_index_mut(&mut self, entity: usize) -> Option<&mut C> {
-        if let Some(maybe_component) = self.container.get_mut(entity) {
-            if let Some(component) = maybe_component {
-                return Some(component);
-            }
+        if let Some(Some(component)) = self.container.get_mut(entity) {
+            return Some(component);
         }
 
-        return None;
+        None
     }
 
     fn set(&mut self, entity: Entity, component: C) {
         let index = entity.index;
 
-        // Check if component already exists at this index
-        let is_new_component = self.container.get(index)
+        let is_new_component = self
+            .container
+            .get(index)
             .map(|opt| opt.is_none())
             .unwrap_or(true);
 
         self.container[index] = Some(component);
 
-        // If this is a new component, add its index to active_indices
         if is_new_component {
             self.active_indices.push(index);
         }

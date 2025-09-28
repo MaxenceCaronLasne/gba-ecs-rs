@@ -9,6 +9,6 @@ name = "gba-ecs-test"
 path = "src/main.rs"
 
 [dependencies]
-gba-ecs-rs = { path = "../gba-ecs-rs" }
+gba-ecs-rs = { path = "../gba-ecs-rs", features = ["allocator_api"] }
 agb = { workspace = true }
 portable-atomic = { workspace = true }

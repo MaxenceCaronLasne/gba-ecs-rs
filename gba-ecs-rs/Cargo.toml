@@ -3,6 +3,10 @@ name = "gba-ecs-rs"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+allocator_api = []
+
 [dependencies]
 agb = { workspace = true }
 portable-atomic = { workspace = true }

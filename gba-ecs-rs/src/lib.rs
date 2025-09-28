@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(allocator_api)]
 
 extern crate alloc;
 
@@ -11,4 +12,3 @@ pub use container::{ComponentContainer, GetComponentContainer, VecComponentConta
 pub use entity::Entity;
 pub use world::World;
 pub use zip::{zip, zip3, ZippedQuery2, ZippedQuery3};
-
