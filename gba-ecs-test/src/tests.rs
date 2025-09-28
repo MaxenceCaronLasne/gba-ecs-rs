@@ -138,7 +138,7 @@ mod test {
         container.set(entity2, TestPosition { x: 2, y: 2 });
 
         let mut visited = Vec::new();
-        container.for_each_sparse(|index, pos| {
+        container.for_each(|index, pos| {
             visited.push((index, pos.x, pos.y));
         });
 
@@ -161,7 +161,7 @@ mod test {
         container.set(entity0, TestPosition { x: 0, y: 0 });
         container.set(entity1, TestPosition { x: 1, y: 1 });
 
-        container.for_each_sparse_mut(|_index, pos| {
+        container.for_each_mut(|_index, pos| {
             pos.x += 10;
             pos.y += 20;
         });
@@ -194,12 +194,12 @@ mod test {
         container.set(entity4, TestPosition { x: 4, y: 4 });
 
         let mut dense_count = 0;
-        container.for_each(|_index, _pos| {
+        container.for_each_fast(|_index, _pos| {
             dense_count += 1;
         });
 
         let mut sparse_count = 0;
-        container.for_each_sparse(|_index, _pos| {
+        container.for_each(|_index, _pos| {
             sparse_count += 1;
         });
 
@@ -207,7 +207,7 @@ mod test {
         assert_eq!(sparse_count, 3);
 
         let mut sparse_indices = Vec::new();
-        container.for_each_sparse(|index, _pos| {
+        container.for_each(|index, _pos| {
             sparse_indices.push(index);
         });
 
@@ -233,17 +233,78 @@ mod test {
 
         assert_eq!(query_results.len(), 1);
         assert_eq!(query_results[0], (0, 10, 20, 1, 2));
+    }
 
-        // Test mutable query - add to positions based on velocity
-        world.for_each_mut::<(&mut TestPosition, &TestVelocity), _>(|_entity, (pos, vel)| {
-            pos.x += vel.dx;
-            pos.y += vel.dy;
+    #[test_case]
+    fn test_optimized_vec_container_query(_agb: &mut agb::Gba) {
+        let mut world = World::<MacroTestWorld>::new();
+
+        // Add multiple entities to test the optimization
+        for i in 0..10 {
+            let entity = world.spawn();
+            world.add(entity, TestPosition { x: i, y: i * 2 });
+
+            // Only add velocity to half the entities to test filtering
+            if i % 2 == 0 {
+                world.add(entity, TestVelocity { dx: 1, dy: 1 });
+            }
+        }
+
+        // Test that VecComponentContainer optimization works
+        let mut results = Vec::new();
+        world.for_each::<(&TestPosition, &TestVelocity), _>(|entity, (pos, vel)| {
+            results.push((entity, pos.x, pos.y, vel.dx, vel.dy));
         });
 
-        // Verify the mutation worked
-        let positions = world.get::<TestPosition>();
-        let pos1 = positions.get(entity1).unwrap();
-        assert_eq!(pos1.x, 11);
-        assert_eq!(pos1.y, 22);
+        // Should find 5 entities (even indices 0, 2, 4, 6, 8)
+        assert_eq!(results.len(), 5);
+
+        // Check that we got the correct entities
+        for (i, &(entity, x, y, dx, dy)) in results.iter().enumerate() {
+            let expected_entity = i * 2; // 0, 2, 4, 6, 8
+            assert_eq!(entity, expected_entity);
+            assert_eq!(x, expected_entity as i32);
+            assert_eq!(y, (expected_entity * 2) as i32);
+            assert_eq!(dx, 1);
+            assert_eq!(dy, 1);
+        }
+    }
+
+    #[test_case]
+    fn test_mixed_container_fallback(_agb: &mut agb::Gba) {
+        use crate::world::MyWorldContainer;
+        use crate::{Modulo1, Unique2};
+        use gba_ecs_rs::World;
+
+        let mut world = World::<MyWorldContainer>::new();
+
+        // Add entities with both VecComponentContainer (Modulo1) and HashComponentContainer (Unique2)
+        for i in 0..5 {
+            let entity = world.spawn();
+            world.add(entity, Modulo1(i));
+
+            // Only add Unique2 to some entities to test filtering
+            if i % 2 == 1 {
+                world.add(entity, Unique2(i * 10));
+            }
+        }
+
+        // Test mixed container query (VecComponentContainer + HashComponentContainer)
+        // This should use the fallback path, not the optimized zip
+        let mut results = Vec::new();
+        world.for_each::<(&Modulo1, &Unique2), _>(|entity, (modulo, unique)| {
+            results.push((entity, modulo.0, unique.0));
+        });
+
+        // Should find 2 entities (indices 1, 3)
+        assert_eq!(results.len(), 2);
+
+        // Check results
+        for (i, &(entity, modulo_val, unique_val)) in results.iter().enumerate() {
+            let expected_entity = (i * 2) + 1; // 1, 3
+            assert_eq!(entity, expected_entity);
+            assert_eq!(modulo_val, expected_entity as i32);
+            assert_eq!(unique_val, (expected_entity * 10) as i32);
+        }
     }
 }

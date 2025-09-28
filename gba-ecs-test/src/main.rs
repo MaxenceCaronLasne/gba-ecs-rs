@@ -7,7 +7,7 @@
 extern crate alloc;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use gba_ecs_rs::{zip, zip3, ComponentContainer, Entity, World};
+use gba_ecs_rs::{zip, zip3, ComponentContainer, Entity, Query, World};
 
 mod bench;
 mod component;
@@ -17,7 +17,7 @@ mod world;
 use component::{Modulo1, Modulo2, Modulo8, Unique1, Unique2};
 use world::MyWorldContainer;
 
-const ITERATIONS: usize = 1000;
+const ITERATIONS: usize = 100;
 
 #[agb::entry]
 fn main(mut gba: agb::Gba) -> ! {
@@ -83,7 +83,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("for_each modulo1");
-    modulo1_container.for_each(|_index, m1| {
+    world.for_each::<&Modulo1, _>(|_e, m1| {
         sum += m1.0;
     });
     bench::stop("for_each modulo1");
@@ -122,7 +122,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("for_each mod1 + mod2");
-    zip(modulo1_container, modulo2_container).for_each(|_e, m1, m2| {
+    world.for_each::<(&Modulo1, &Modulo2), _>(|_e, (m1, m2)| {
         sum += m1.0 + m2.0;
     });
     bench::stop("for_each mod1 + mod2");
@@ -170,7 +170,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("for_each mod1 + mod2 + mod8");
-    zip3(modulo1_container, modulo2_container, modulo8_container).for_each(|_e, m1, m2, m8| {
+    world.for_each::<(&Modulo1, &Modulo2, &Modulo8), _>(|_e, (m1, m2, m8)| {
         sum += m1.0 + m2.0 + m8.0;
     });
     bench::stop("for_each mod1 + mod2 + mod8");
@@ -178,11 +178,9 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("for_each_sparse mod1 + mod2 + mod8");
-    zip3(modulo1_container, modulo2_container, modulo8_container).for_each_sparse(
-        |_e, m1, m2, m8| {
-            sum += m1.0 + m2.0 + m8.0;
-        },
-    );
+    world.for_each_sparse::<(&Modulo8, &Modulo2, &Modulo1), _>(|_entity_index, (m8, m2, m1)| {
+        sum += m1.0 + m2.0 + m8.0;
+    });
     bench::stop("for_each_sparse mod1 + mod2 + mod8");
     agb::println!("sum={}", sum);
     sum = 0;

@@ -48,6 +48,14 @@ impl<WC: WorldContainer> World<WC> {
     {
         Q::for_each(self, f);
     }
+
+    pub fn for_each_sparse<Q, F>(&self, f: F)
+    where
+        Q: for<'a> crate::query::Query<'a, WC>,
+        F: FnMut(usize, <Q as crate::query::Query<'_, WC>>::Item),
+    {
+        Q::for_each_sparse(self, f);
+    }
 }
 
 impl<WC: WorldContainer> Default for World<WC> {

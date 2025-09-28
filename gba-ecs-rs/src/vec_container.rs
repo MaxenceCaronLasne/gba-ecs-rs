@@ -32,7 +32,7 @@ impl<C, A: Allocator + Clone> VecComponentContainer<C, A> {
     }
 
     #[inline]
-    pub fn for_each<F>(&self, mut f: F)
+    pub fn for_each_fast<F>(&self, mut f: F)
     where
         F: FnMut(usize, &C),
     {
@@ -50,7 +50,7 @@ impl<C, A: Allocator + Clone> VecComponentContainer<C, A> {
     }
 
     #[inline]
-    pub fn for_each_mut<F>(&mut self, mut f: F)
+    pub fn for_each_fast_mut<F>(&mut self, mut f: F)
     where
         F: FnMut(usize, &mut C),
     {
@@ -63,30 +63,6 @@ impl<C, A: Allocator + Clone> VecComponentContainer<C, A> {
                 if let Some(component) = val {
                     f(index, component);
                 }
-            }
-        }
-    }
-
-    #[inline]
-    pub fn for_each_sparse<F>(&self, mut f: F)
-    where
-        F: FnMut(usize, &C),
-    {
-        for &index in &self.active_indices {
-            if let Some(Some(component)) = self.container.get(index) {
-                f(index, component);
-            }
-        }
-    }
-
-    #[inline]
-    pub fn for_each_sparse_mut<F>(&mut self, mut f: F)
-    where
-        F: FnMut(usize, &mut C),
-    {
-        for &index in &self.active_indices {
-            if let Some(Some(component)) = self.container.get_mut(index) {
-                f(index, component);
             }
         }
     }
@@ -155,15 +131,9 @@ impl<C, A: Allocator + Clone> ComponentContainer<C> for VecComponentContainer<C,
     where
         F: FnMut(usize, &C),
     {
-        let len = self.container.len();
-        let ptr = self.container.as_ptr();
-
-        for index in 0..len {
-            unsafe {
-                let val = &*ptr.add(index);
-                if let Some(component) = val {
-                    f(index, component);
-                }
+        for &index in &self.active_indices {
+            if let Some(Some(component)) = self.container.get(index) {
+                f(index, component);
             }
         }
     }
@@ -172,16 +142,14 @@ impl<C, A: Allocator + Clone> ComponentContainer<C> for VecComponentContainer<C,
     where
         F: FnMut(usize, &mut C),
     {
-        let len = self.container.len();
-        let ptr = self.container.as_mut_ptr();
-
-        for index in 0..len {
-            unsafe {
-                let val = &mut *ptr.add(index);
-                if let Some(component) = val {
-                    f(index, component);
-                }
+        for &index in &self.active_indices {
+            if let Some(Some(component)) = self.container.get_mut(index) {
+                f(index, component);
             }
         }
+    }
+
+    fn is_vec_container(&self) -> bool {
+        true
     }
 }

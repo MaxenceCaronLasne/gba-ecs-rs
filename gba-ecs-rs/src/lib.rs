@@ -14,7 +14,7 @@ mod zip;
 pub use container::{ComponentContainer, GetComponentContainer};
 pub use entity::Entity;
 pub use hash_container::HashComponentContainer;
-pub use query::{Query, QueryMut};
+pub use query::Query;
 pub use vec_container::VecComponentContainer;
 pub use world::World;
 pub use world::WorldContainer;
