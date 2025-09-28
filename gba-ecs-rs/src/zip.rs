@@ -21,7 +21,6 @@ impl<'a, T1: 'a, T2: 'a> ZippedQuery2<'a, T1, T2> {
         let container2 = &container2_full.container;
         assert_eq!(container1.len(), container2.len());
 
-        // Find the shortest active_indices vector for sparse iteration optimization
         let (shortest_active_indices, shortest_active_len) =
             if container1_full.active_indices.len() <= container2_full.active_indices.len() {
                 (
@@ -58,6 +57,26 @@ impl<'a, T1: 'a, T2: 'a> ZippedQuery2<'a, T1, T2> {
                 if let Some(ref1) = val1 {
                     if let Some(ref2) = val2 {
                         f(i, ref1, ref2);
+                    }
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub fn for_each_sparse<F>(self, mut f: F)
+    where
+        F: FnMut(usize, &'a T1, &'a T2),
+    {
+        for i in 0..self.shortest_active_len {
+            let index = unsafe { *self.shortest_active_indices.add(i) };
+            unsafe {
+                let val1 = &*self.container1.add(index);
+                let val2 = &*self.container2.add(index);
+
+                if let Some(ref1) = val1 {
+                    if let Some(ref2) = val2 {
+                        f(index, ref1, ref2);
                     }
                 }
             }
@@ -125,7 +144,6 @@ impl<'a, T1: 'a, T2: 'a, T3: 'a> ZippedQuery3<'a, T1, T2, T3> {
         let container3 = &container3_full.container;
         assert_eq!(container1.len(), container2.len());
 
-        // Find the shortest active_indices vector for sparse iteration optimization
         let (shortest_active_indices, shortest_active_len) = if container1_full.active_indices.len()
             <= container2_full.active_indices.len()
             && container1_full.active_indices.len() <= container3_full.active_indices.len()
@@ -173,6 +191,29 @@ impl<'a, T1: 'a, T2: 'a, T3: 'a> ZippedQuery3<'a, T1, T2, T3> {
                     if let Some(ref2) = val2 {
                         if let Some(ref3) = val3 {
                             f(i, ref1, ref2, ref3);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub fn for_each_sparse<F>(self, mut f: F)
+    where
+        F: FnMut(usize, &'a T1, &'a T2, &'a T3),
+    {
+        for i in 0..self.shortest_active_len {
+            let index = unsafe { *self.shortest_active_indices.add(i) };
+            unsafe {
+                let val1 = &*self.container1.add(index);
+                let val2 = &*self.container2.add(index);
+                let val3 = &*self.container3.add(index);
+
+                if let Some(ref1) = val1 {
+                    if let Some(ref2) = val2 {
+                        if let Some(ref3) = val3 {
+                            f(index, ref1, ref2, ref3);
                         }
                     }
                 }

@@ -192,7 +192,7 @@ fn main(mut gba: agb::Gba) -> ! {
     sum = 0;
 
     bench::start("for_each_sparse mod1 + mod2 + mod8");
-    zip3(modulo1_container, modulo2_container, modulo8_container).for_each_sparse_mut(
+    zip3(modulo1_container, modulo2_container, modulo8_container).for_each_sparse(
         |_e, m1, m2, m8| {
             sum += m1.0 + m2.0 + m8.0;
         },
