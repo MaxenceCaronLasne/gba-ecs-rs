@@ -15,7 +15,7 @@
 // until you declare the extern crate. `agb` provides an allocator so it will all work
 extern crate alloc;
 
-use gba_ecs_rs::{zip3, ComponentContainer, Entity, GetComponentContainer, VecComponentContainer};
+use gba_ecs_rs::{world, zip3, ComponentContainer, Entity, World};
 
 mod bench;
 
@@ -36,101 +36,14 @@ struct Strongness {
     value: i32,
 }
 
-trait World {
-    fn new() -> Self;
-    fn add_entity(&mut self) -> Entity;
-    fn add_component<C>(&mut self, entity: Entity, component: C)
-    where
-        Self: GetComponentContainer<C>;
-}
-
-struct MyWorld {
-    last_entity: usize,
-    positions: VecComponentContainer<Position>,
-    velocities: VecComponentContainer<Velocity>,
-    strongness: VecComponentContainer<Strongness>,
-}
-
-impl World for MyWorld {
-    fn new() -> Self {
-        Self {
-            last_entity: 0,
-            positions: VecComponentContainer::new(),
-            velocities: VecComponentContainer::new(),
-            strongness: VecComponentContainer::new(),
-        }
-    }
-
-    fn add_entity(&mut self) -> Entity {
-        let entity = Entity::new(self.last_entity);
-        self.last_entity += 1;
-
-        self.positions.add_entity(entity);
-        self.velocities.add_entity(entity);
-        self.strongness.add_entity(entity);
-
-        entity
-    }
-
-    fn add_component<C>(&mut self, entity: Entity, component: C)
-    where
-        Self: GetComponentContainer<C>,
-    {
-        let container = self.get_components_mut::<C>();
-        container.set(entity, component);
-    }
-}
-
-impl MyWorld {
-    fn get_components<C>(&self) -> &<Self as GetComponentContainer<C>>::Container
-    where
-        Self: GetComponentContainer<C>,
-    {
-        GetComponentContainer::get_components(self)
-    }
-
-    fn get_components_mut<C>(&mut self) -> &mut <Self as GetComponentContainer<C>>::Container
-    where
-        Self: GetComponentContainer<C>,
-    {
-        GetComponentContainer::get_components_mut(self)
-    }
-}
-
-impl GetComponentContainer<Position> for MyWorld {
-    type Container = VecComponentContainer<Position>;
-    fn get_components(&self) -> &Self::Container {
-        &self.positions
-    }
-    fn get_components_mut(&mut self) -> &mut Self::Container {
-        &mut self.positions
-    }
-}
-
-impl GetComponentContainer<Velocity> for MyWorld {
-    type Container = VecComponentContainer<Velocity>;
-    fn get_components(&self) -> &Self::Container {
-        &self.velocities
-    }
-    fn get_components_mut(&mut self) -> &mut Self::Container {
-        &mut self.velocities
-    }
-}
-
-impl GetComponentContainer<Strongness> for MyWorld {
-    type Container = VecComponentContainer<Strongness>;
-    fn get_components(&self) -> &Self::Container {
-        &self.strongness
-    }
-    fn get_components_mut(&mut self) -> &mut Self::Container {
-        &mut self.strongness
-    }
-}
+world!(MyWorld {
+    Position,
+    Velocity,
+    Strongness
+});
 
 const ITERATIONS: usize = 1000;
 
-// The main function must take 1 arguments and never returns, and must be marked with
-// the #[agb::entry] macro.
 #[agb::entry]
 fn main(mut gba: agb::Gba) -> ! {
     let mut timers = gba.timers.timers();
@@ -210,6 +123,7 @@ mod test {
     use super::*;
     use alloc::vec;
     use alloc::vec::Vec;
+    use gba_ecs_rs::VecComponentContainer;
 
     // Test components - independent from main program components
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -222,6 +136,60 @@ mod test {
     struct TestVelocity {
         dx: i32,
         dy: i32,
+    }
+
+    // Test the world! macro
+    world!(MacroTestWorld {
+        TestPosition,
+        TestVelocity
+    });
+
+    #[test_case]
+    fn test_world_macro(_agb: &mut agb::Gba) {
+        let mut world = MacroTestWorld::new();
+
+        // Test add_entity
+        let entity1 = world.add_entity();
+        let entity2 = world.add_entity();
+
+        // Test add_component
+        world.add_component(entity1, TestPosition { x: 10, y: 20 });
+        world.add_component(entity1, TestVelocity { dx: 1, dy: 2 });
+        world.add_component(entity2, TestPosition { x: 30, y: 40 });
+
+        // Test get_components
+        let positions = world.get_components::<TestPosition>();
+        let velocities = world.get_components::<TestVelocity>();
+
+        // Verify positions
+        let pos1 = positions.get(entity1).unwrap();
+        assert_eq!(pos1.x, 10);
+        assert_eq!(pos1.y, 20);
+
+        let pos2 = positions.get(entity2).unwrap();
+        assert_eq!(pos2.x, 30);
+        assert_eq!(pos2.y, 40);
+
+        // Verify velocities
+        let vel1 = velocities.get(entity1).unwrap();
+        assert_eq!(vel1.dx, 1);
+        assert_eq!(vel1.dy, 2);
+
+        // Entity2 should not have velocity
+        assert!(velocities.get(entity2).is_none());
+
+        // Test get_components_mut
+        let positions_mut = world.get_components_mut::<TestPosition>();
+        if let Some(pos) = positions_mut.get_mut(entity1) {
+            pos.x += 5;
+            pos.y += 10;
+        }
+
+        // Verify mutation
+        let positions = world.get_components::<TestPosition>();
+        let pos1 = positions.get(entity1).unwrap();
+        assert_eq!(pos1.x, 15);
+        assert_eq!(pos1.y, 30);
     }
 
     #[test_case]
